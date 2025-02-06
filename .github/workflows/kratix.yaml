@@ -1,8 +1,7 @@
 name: Kratix
 
 on:
-  repository_dispatch:
-    types: [ kratix ]
+  workflow_dispatch:
 
 jobs:
   unit-tests-and-lint:
