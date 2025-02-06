@@ -1,0 +1,13 @@
+name: Test Kratix
+
+on:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  unit-tests-and-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Unit Tests
+        run: |
+          echo "wow"
