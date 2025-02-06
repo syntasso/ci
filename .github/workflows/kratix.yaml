@@ -2,6 +2,13 @@ name: Kratix
 
 on:
   workflow_dispatch:
+    inputs:
+      sha:
+        description: 'Commit sha of Kratix'
+        required: true
+      message:
+        description: 'Commit message'
+        required: false
 
 jobs:
   unit-tests-and-lint:
@@ -16,7 +23,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: syntasso/kratix
-          ref: ${{ github.event.client_payload.sha }}
+          ref: ${{ github.event.inputs.sha }}
       - name: Unit Tests
         run: |
           make test
