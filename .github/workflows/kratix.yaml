@@ -186,7 +186,7 @@ jobs:
           gh release delete latest || true
           gh release create latest --title latest ./distribution/**/*.yaml ./distribution/*.yaml
         env:
-          GH_TOKEN: ${{ secrets.ACTION_PUSH }}
+          GH_TOKEN: ${{ secrets.GH_RELEASE_CREATOR_TOKEN }}
       - name: push-to-helm-charts
         run: |
           cd charts
