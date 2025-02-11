@@ -28,16 +28,23 @@ jobs:
           github-token: ${{ steps.generate-token.outputs.token }}
           script: |
             const statusContext = 'ci-tests';
+            const runId = process.env.GITHUB_RUN_ID || 'unknown';
+            const sha = process.env.GITHUB_SHA || '${{ github.sha }}';
 
-            await github.rest.repos.createCommitStatus({
-              owner: 'syntasso',
-              repo: 'kratix',
-              sha: process.env.GITHUB_SHA,
-              state: 'pending',
-              target_url: `https://github.com/syntasso/ci/actions/runs/${github.context.runId}`,
-              description: 'CI tests in progress',
-              context: statusContext
-            });
+            try {
+              await github.rest.repos.createCommitStatus({
+                owner: 'syntasso',
+                repo: 'kratix',
+                sha: sha,
+                state: 'pending',
+                target_url: `https://github.com/syntasso/ci/actions/runs/${runId}`,
+                description: 'CI tests in progress',
+                context: statusContext
+              });
+              core.info('Successfully set pending status');
+            } catch (error) {
+              core.setFailed(`Failed to set pending status: ${error.message}`);
+            }
 
   unit-tests-and-lint:
     runs-on: ubuntu-latest
@@ -254,16 +261,19 @@ jobs:
           github-token: ${{ steps.generate-token.outputs.token }}
           script: |
             const statusContext = 'ci-tests';
+            const runId = process.env.GITHUB_RUN_ID || 'unknown';
+            const sha = process.env.GITHUB_SHA || '${{ github.sha }}';
 
-            // Collect job results from GitHub context
-            const jobResults = Object.entries(github.context.job)
-              .filter(([jobName, jobData]) => 
-                jobName !== 'set-pending-status' && 
-                jobName !== 'final-status-check' && 
-                typeof jobData === 'object' && 
-                jobData.result
-              )
-              .map(([jobName, jobData]) => jobData.result);
+            // Collect job results from workflow context
+            const jobResults = [
+              '${{ needs.unit-tests-and-lint.result }}',
+              '${{ needs.system-test.result }}',
+              '${{ needs.integration-test.result }}',
+              '${{ needs.tag-new-version.result }}',
+              '${{ needs.build-and-push-kratix-platform.result }}',
+              '${{ needs.build-and-push-pipeline-adapter.result }}',
+              '${{ needs.publish-release.result }}'
+            ];
 
             const hasFailed = jobResults.some(result => 
               result === 'failure' || 
@@ -274,12 +284,17 @@ jobs:
             const state = hasFailed ? 'failure' : 'success';
             const description = hasFailed ? 'CI workflow failed' : 'CI workflow passed';
             
-            await github.rest.repos.createCommitStatus({
-              owner: 'syntasso',
-              repo: 'kratix',
-              sha: process.env.GITHUB_SHA,
-              state: state,
-              target_url: `https://github.com/syntasso/ci/actions/runs/${github.context.runId}`,
-              description: description,
-              context: statusContext
-            });
+            try {
+              await github.rest.repos.createCommitStatus({
+                owner: 'syntasso',
+                repo: 'kratix',
+                sha: sha,
+                state: state,
+                target_url: `https://github.com/syntasso/ci/actions/runs/${runId}`,
+                description: description,
+                context: statusContext
+              });
+              core.info(`Successfully set final status to ${state}`);
+            } catch (error) {
+              core.setFailed(`Failed to set final status: ${error.message}`);
+            }
