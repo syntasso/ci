@@ -28,9 +28,8 @@ jobs:
           github-token: ${{ steps.generate-token.outputs.token }}
           script: |
             const statusContext = 'ci-tests';
-            const octokit = github.getOctokit(core.getInput('token'));
 
-            await octokit.rest.repos.createCommitStatus({
+            await github.rest.repos.createCommitStatus({
               owner: 'syntasso',
               repo: 'kratix',
               sha: process.env.GITHUB_SHA,
@@ -255,7 +254,6 @@ jobs:
           github-token: ${{ steps.generate-token.outputs.token }}
           script: |
             const statusContext = 'ci-tests';
-            const octokit = github.getOctokit(core.getInput('token'));
 
             // Collect job results from GitHub context
             const jobResults = Object.entries(github.context.job)
@@ -276,7 +274,7 @@ jobs:
             const state = hasFailed ? 'failure' : 'success';
             const description = hasFailed ? 'CI workflow failed' : 'CI workflow passed';
             
-            await octokit.rest.repos.createCommitStatus({
+            await github.rest.repos.createCommitStatus({
               owner: 'syntasso',
               repo: 'kratix',
               sha: process.env.GITHUB_SHA,
