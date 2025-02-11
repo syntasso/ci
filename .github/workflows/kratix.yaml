@@ -14,8 +14,6 @@ jobs:
   set-pending-status:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-
       - name: Generate GitHub App token
         id: generate-token
         uses: actions/create-github-app-token@v1
@@ -29,8 +27,18 @@ jobs:
         with:
           github-token: ${{ steps.generate-token.outputs.token }}
           script: |
-            const script = require('./scripts/set-pending-status.js');
-            await script.run();
+            const context = 'ci-tests';
+            const octokit = github.getOctokit(core.getInput('token'));
+
+            await octokit.rest.repos.createCommitStatus({
+              owner: 'syntasso',
+              repo: 'kratix',
+              sha: process.env.GITHUB_SHA,
+              state: 'pending',
+              target_url: `https://github.com/syntasso/ci/actions/runs/${github.context.runId}`,
+              description: 'CI tests in progress',
+              context: context
+            });
 
   unit-tests-and-lint:
     runs-on: ubuntu-latest
@@ -233,8 +241,6 @@ jobs:
       - publish-release
     if: always()
     steps:
-      - uses: actions/checkout@v4
-
       - name: Generate GitHub App token
         id: generate-token
         uses: actions/create-github-app-token@v1
@@ -248,5 +254,34 @@ jobs:
         with:
           github-token: ${{ steps.generate-token.outputs.token }}
           script: |
-            const script = require('./scripts/set-final-status.js');
-            await script.run();
+            const context = 'ci-tests';
+            const octokit = github.getOctokit(core.getInput('token'));
+
+            // Collect job results from GitHub context
+            const jobResults = Object.entries(github.context.job)
+              .filter(([jobName, jobData]) => 
+                jobName !== 'set-pending-status' && 
+                jobName !== 'final-status-check' && 
+                typeof jobData === 'object' && 
+                jobData.result
+              )
+              .map(([jobName, jobData]) => jobData.result);
+
+            const hasFailed = jobResults.some(result => 
+              result === 'failure' || 
+              result === 'timed_out' || 
+              result === 'cancelled'
+            );
+
+            const state = hasFailed ? 'failure' : 'success';
+            const description = hasFailed ? 'CI workflow failed' : 'CI workflow passed';
+            
+            await octokit.rest.repos.createCommitStatus({
+              owner: 'syntasso',
+              repo: 'kratix',
+              sha: process.env.GITHUB_SHA,
+              state: state,
+              target_url: `https://github.com/syntasso/ci/actions/runs/${github.context.runId}`,
+              description: description,
+              context: context
+            });
