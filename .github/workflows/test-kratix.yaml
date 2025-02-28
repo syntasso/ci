@@ -7,7 +7,7 @@ on:
         description: 'Commit sha of Kratix'
         required: true
         type: string
-      branch:
+      message:
         description: 'Commit message'
         type: string
         required: false
@@ -16,7 +16,7 @@ on:
       sha:
         required: true
         type: string
-      branch:
+      message:
         type: string
         required: false
 
