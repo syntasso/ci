@@ -2,7 +2,23 @@ name: Test Kratix
 
 on:
   workflow_dispatch:
+    inputs:
+      sha:
+        description: 'Commit sha of Kratix'
+        required: true
+        type: string
+      branch:
+        description: 'Commit message'
+        type: string
+        required: false
   workflow_call:
+    inputs:
+      sha:
+        required: true
+        type: string
+      branch:
+        type: string
+        required: false
 
 jobs:
   unit-tests-and-lint:
