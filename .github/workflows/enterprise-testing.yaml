@@ -1,14 +1,15 @@
 name: enterprise-kratix # separate workflow to integrate faster
 
 on:
-  workflow_dispatch:
-    inputs:
-      sha:
-        description: 'Commit sha of Kratix'
-        required: true
-      message:
-        description: 'Commit message'
-        required: false
+  pr:
+#  workflow_dispatch:
+#    inputs:
+#      sha:
+#        description: 'Commit sha of Kratix'
+#        required: true
+#      message:
+#        description: 'Commit message'
+#        required: false
 jobs:
   ske-upgrade-test:
     runs-on: ubuntu-latest
@@ -23,7 +24,8 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: syntasso/kratix
-          ref: ${{ github.event.inputs.sha }}
+#          ref: ${{ github.event.inputs.sha }}
+          ref: 09bb931aec3031e07d9810da52af56c0e31c19d7
           path: ready-only-kratix
       - name: Install Go
         uses: actions/setup-go@v5
@@ -45,5 +47,10 @@ jobs:
           GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
           GH_TOKEN: ${{ secrets.GH_RELEASE_CREATOR_TOKEN }}
         run: |
-          ./scripts/run-ske-upgrade-test-in-kind.sh
+          ls
+          pushd read-only-kratix
+          ls
+          make help
+          popd
+          # ./scripts/run-ske-upgrade-test-in-kind.sh
             
