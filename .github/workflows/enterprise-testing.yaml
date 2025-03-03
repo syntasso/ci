@@ -105,9 +105,10 @@ jobs:
     steps:
       - name: Check out enterprise kratix
         uses: actions/checkout@v4
-        env:
-          KRATIX_COMMIT_SHA: ${{ github.event.inputs.sha }}
         with:
           repository: syntasso/enterprise-kratix
           ssh-key: ${{ secrets.ENTERPRISE_KRATIX_DEPLOY_KEY_READ_PUSH }}
+      - name: update-read-only-kratix
+        env:
+          KRATIX_COMMIT_SHA: ${{ github.event.inputs.sha }}
         run: scripts/update-read-only-kratix-commit-sha.sh
