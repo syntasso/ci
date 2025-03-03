@@ -25,9 +25,8 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: syntasso/kratix
-#          ref: ${{ github.event.inputs.sha }}
-          ref: 09bb931aec3031e07d9810da52af56c0e31c19d7
-          path: ready-only-kratix
+          ref: ${{ github.event.inputs.sha }}
+          path: read-only-kratix
       - name: Install Go
         uses: actions/setup-go@v5
         with:
@@ -48,10 +47,5 @@ jobs:
           GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
           GH_TOKEN: ${{ secrets.GH_RELEASE_CREATOR_TOKEN }}
         run: |
-          ls
-          pushd read-only-kratix
-          ls
-          make help
-          popd
-          # ./scripts/run-ske-upgrade-test-in-kind.sh
+          ./scripts/run-ske-upgrade-test-in-kind.sh
             
