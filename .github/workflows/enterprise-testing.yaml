@@ -64,6 +64,7 @@ jobs:
         with:
           repository: syntasso/kratix
           ref: ${{ github.event.inputs.sha }}
+          path: read-only-kratix
       - name: Checkout out backstage
         uses: actions/checkout@v4
         with:
