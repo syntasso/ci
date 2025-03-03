@@ -41,6 +41,8 @@ jobs:
       - name: Install vCluster CLI
         uses: loft-sh/setup-vcluster@main
       - name: ske-upgrade
+        env:
+          GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
         run: |
           ./scripts/run-ske-upgrade-test-in-kind.sh
             
