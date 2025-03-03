@@ -97,5 +97,6 @@ jobs:
       - name: Backstage tests
         env:
           GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_RELEASE_CREATOR_TOKEN }}
         run: |
           ./scripts/test-ske-with-backstage-in-kind.sh
