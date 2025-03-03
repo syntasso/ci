@@ -43,6 +43,7 @@ jobs:
       - name: ske-upgrade
         env:
           GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_RELEASE_CREATOR_TOKEN }}
         run: |
           ./scripts/run-ske-upgrade-test-in-kind.sh
             
