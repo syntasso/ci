@@ -7,10 +7,18 @@ on:
         description: 'Commit sha of Kratix'
         required: false
         type: string
+      ske_sha:
+        description: 'Commit sha of enterprise-kratix'
+        required: false
+        type: string
   workflow_call:
     inputs:
       sha:
         description: 'Commit sha of Kratix'
+        required: false
+        type: string
+      ske_sha:
+        description: 'Commit sha of enterprise-kratix'
         required: false
         type: string
 
@@ -23,6 +31,7 @@ jobs:
         with:
           repository: syntasso/enterprise-kratix
           ssh-key: ${{ secrets.ENTERPRISE_KRATIX_DEPLOY_KEY_READ_PUSH }}
+          ref: ${{ github.event.inputs.ske_sha }}
           submodules: recursive
       - name: Checkout out kratix into enterprise kratix
         if: "${{ github.event.inputs.sha != '' }}"
@@ -59,6 +68,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: syntasso/enterprise-kratix
+          ref: ${{ github.event.inputs.ske_sha }}
           ssh-key: ${{ secrets.ENTERPRISE_KRATIX_DEPLOY_KEY_READ_PUSH }}
           submodules: recursive
       - name: Checkout out kratix into enterprise kratix
@@ -111,8 +121,21 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: syntasso/enterprise-kratix
+          submodules: recursive
           ssh-key: ${{ secrets.ENTERPRISE_KRATIX_DEPLOY_KEY_READ_PUSH }}
       - name: update-read-only-kratix
         env:
           KRATIX_COMMIT_SHA: ${{ github.event.inputs.sha }}
-        run: scripts/update-read-only-kratix-commit-sha.sh
+        run: |
+          git config user.name "syntassodev"
+          git config user.email "kratix@syntasso.io"
+          pushd read-only-kratix
+          git checkout "${KRATIX_COMMIT_SHA}"
+          popd
+          if [ -z "$(git status --porcelain)" ]; then
+          echo "no changes to commit; exiting"
+          exit 0
+          fi
+          git add read-only-kratix
+          git commit -m "from test-ske workflow: pushing read-only-kratix at ${KRATIX_COMMIT_SHA}"
+          git push origin main

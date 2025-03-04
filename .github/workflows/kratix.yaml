@@ -75,6 +75,7 @@ jobs:
       - set-pending-status
       - test-kratix
       - release-kratix
+      - test-ske
     if: always()
     steps:
       - name: Generate GitHub App token
@@ -98,6 +99,7 @@ jobs:
             const jobResults = [
               '${{ needs.test-kratix.result }}',
               '${{ needs.release-kratix.result }}',
+              '${{ needs.test-ske.result }}',
             ];
 
             const hasFailed = jobResults.some(result => 
