@@ -1,51 +1,50 @@
 name: test-ske
 
 on:
-  pull_request:
-    branches: [ "main" ]
-#  workflow_dispatch:
-#    inputs:
-#      sha:
-#        description: 'Commit sha of Kratix'
-#        required: true
-#      message:
-#        description: 'Commit message'
-#        required: false
+  workflow_dispatch:
+    inputs:
+      sha:
+        description: 'Commit sha of Kratix'
+        required: true
+      message:
+        description: 'Commit message'
+        required: false
+
 jobs:
-#  ske-upgrade-test:
-#    runs-on: ubuntu-latest
-#    steps:
-#      - name: Check out enterprise kratix
-#        uses: actions/checkout@v4
-#        with:
-#          repository: syntasso/enterprise-kratix
-#          ssh-key: ${{ secrets.ENTERPRISE_KRATIX_DEPLOY_KEY_READ_PUSH }}
-#      - name: Checkout out kratix into enterprise kratix
-#        uses: actions/checkout@v4
-#        with:
-#          repository: syntasso/kratix
-#          ref: ${{ github.event.inputs.sha }}
-#          path: read-only-kratix
-#      - name: Install Go
-#        uses: actions/setup-go@v5
-#        with:
-#          go-version: 1.23
-#          check-latest: true
-#      - name: Install Kind
-#        uses: helm/kind-action@v1
-#        with:
-#          install_only: true
-#      - name: Setup Flux CLI
-#        uses: fluxcd/flux2/action@main
-#        with:
-#          version: '2.4.0'
-#      - name: Install vCluster CLI
-#        uses: loft-sh/setup-vcluster@main
-#      - name: Upgrade tests
-#        env:
-#          GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
-#          GH_TOKEN: ${{ secrets.GH_RELEASE_CREATOR_TOKEN }}
-#        run: ./scripts/run-ske-upgrade-test-in-kind.sh
+  ske-upgrade-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out enterprise kratix
+        uses: actions/checkout@v4
+        with:
+          repository: syntasso/enterprise-kratix
+          ssh-key: ${{ secrets.ENTERPRISE_KRATIX_DEPLOY_KEY_READ_PUSH }}
+      - name: Checkout out kratix into enterprise kratix
+        uses: actions/checkout@v4
+        with:
+          repository: syntasso/kratix
+          ref: ${{ github.event.inputs.sha }}
+          path: read-only-kratix
+      - name: Install Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: 1.23
+          check-latest: true
+      - name: Install Kind
+        uses: helm/kind-action@v1
+        with:
+          install_only: true
+      - name: Setup Flux CLI
+        uses: fluxcd/flux2/action@main
+        with:
+          version: '2.4.0'
+      - name: Install vCluster CLI
+        uses: loft-sh/setup-vcluster@main
+      - name: Upgrade tests
+        env:
+          GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_RELEASE_CREATOR_TOKEN }}
+        run: ./scripts/run-ske-upgrade-test-in-kind.sh
 
   ske-backstage-test:
     runs-on: ubuntu-latest
@@ -95,16 +94,16 @@ jobs:
           DOCKER_PRUNE: "true"
         run: ./scripts/test-ske-with-backstage-in-kind.sh
 
-#  update-read-only-kratix:
-#    runs-on: ubuntu-latest
-#    needs: [ ske-backstage-test,ske-upgrade-test ]
-#    steps:
-#      - name: Check out enterprise kratix
-#        uses: actions/checkout@v4
-#        with:
-#          repository: syntasso/enterprise-kratix
-#          ssh-key: ${{ secrets.ENTERPRISE_KRATIX_DEPLOY_KEY_READ_PUSH }}
-#      - name: update-read-only-kratix
-#        env:
-#          KRATIX_COMMIT_SHA: ${{ github.event.inputs.sha }}
-#        run: scripts/update-read-only-kratix-commit-sha.sh
+  update-read-only-kratix:
+    runs-on: ubuntu-latest
+    needs: [ ske-backstage-test,ske-upgrade-test ]
+    steps:
+      - name: Check out enterprise kratix
+        uses: actions/checkout@v4
+        with:
+          repository: syntasso/enterprise-kratix
+          ssh-key: ${{ secrets.ENTERPRISE_KRATIX_DEPLOY_KEY_READ_PUSH }}
+      - name: update-read-only-kratix
+        env:
+          KRATIX_COMMIT_SHA: ${{ github.event.inputs.sha }}
+        run: scripts/update-read-only-kratix-commit-sha.sh
