@@ -114,7 +114,7 @@ jobs:
 
   update-read-only-kratix:
     runs-on: ubuntu-latest
-    needs: [ ske-backstage-test,ske-upgrade-test ]
+    needs: [ ske-backstage-test,ske-upgrade-and-oss-test ]
     if: "${{ github.event.inputs.sha != '' }}"
     steps:
       - name: Check out enterprise kratix
