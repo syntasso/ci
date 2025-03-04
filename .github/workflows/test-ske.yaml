@@ -3,11 +3,8 @@ name: test-ske
 on:
   workflow_dispatch:
     inputs:
-      sha:
+      kratix_sha:
         description: 'Commit sha of Kratix'
-        required: true
-      message:
-        description: 'Commit message'
         required: false
 
 jobs:
@@ -20,10 +17,11 @@ jobs:
           repository: syntasso/enterprise-kratix
           ssh-key: ${{ secrets.ENTERPRISE_KRATIX_DEPLOY_KEY_READ_PUSH }}
       - name: Checkout out kratix into enterprise kratix
+        if: "${{ github.event.inputs.kratix_sha != '' }}"
         uses: actions/checkout@v4
         with:
           repository: syntasso/kratix
-          ref: ${{ github.event.inputs.sha }}
+          ref: ${{ github.event.inputs.kratix_sha }}
           path: read-only-kratix
       - name: Install Go
         uses: actions/setup-go@v5
@@ -55,10 +53,11 @@ jobs:
           repository: syntasso/enterprise-kratix
           ssh-key: ${{ secrets.ENTERPRISE_KRATIX_DEPLOY_KEY_READ_PUSH }}
       - name: Checkout out kratix into enterprise kratix
+        if: "${{ github.event.inputs.kratix_sha != '' }}"
         uses: actions/checkout@v4
         with:
           repository: syntasso/kratix
-          ref: ${{ github.event.inputs.sha }}
+          ref: ${{ github.event.inputs.kratix_sha }}
           path: read-only-kratix
       - name: Checkout out backstage
         uses: actions/checkout@v4
@@ -97,6 +96,7 @@ jobs:
   update-read-only-kratix:
     runs-on: ubuntu-latest
     needs: [ ske-backstage-test,ske-upgrade-test ]
+    if: "${{ github.event.inputs.kratix_sha != '' }}"
     steps:
       - name: Check out enterprise kratix
         uses: actions/checkout@v4
@@ -105,5 +105,5 @@ jobs:
           ssh-key: ${{ secrets.ENTERPRISE_KRATIX_DEPLOY_KEY_READ_PUSH }}
       - name: update-read-only-kratix
         env:
-          KRATIX_COMMIT_SHA: ${{ github.event.inputs.sha }}
+          KRATIX_COMMIT_SHA: ${{ github.event.inputs.kratix_sha }}
         run: scripts/update-read-only-kratix-commit-sha.sh
