@@ -80,10 +80,6 @@ jobs:
         uses: fluxcd/flux2/action@main
         with:
           version: '2.4.0'
-      - name: Setup tmate session
-        uses: mxschmitt/action-tmate@v3
-        with:
-          detached: true
       - name: Install Backstage plugins
         run: |
           pushd backstage-plugins/plugins/ske-backend
@@ -96,6 +92,7 @@ jobs:
         env:
           GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
           GH_TOKEN: ${{ secrets.GH_RELEASE_CREATOR_TOKEN }}
+          DOCKER_PRUNE: "true"
         run: ./scripts/test-ske-with-backstage-in-kind.sh
 
 #  update-read-only-kratix:
