@@ -61,6 +61,13 @@ jobs:
       sha: ${{ github.event.inputs.sha }}
     secrets: inherit
 
+  test-ske:
+    needs: [ set-pending-status ]
+    uses:
+      syntasso/ci/.github/workflows/test-ske.yaml@main
+    with:
+      sha: ${{ github.event.inputs.sha }}
+
   final-status-check:
     runs-on: ubuntu-latest
     needs: 
