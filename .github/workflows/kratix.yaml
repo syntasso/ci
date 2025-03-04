@@ -67,6 +67,7 @@ jobs:
       syntasso/ci/.github/workflows/test-ske.yaml@main
     with:
       sha: ${{ github.event.inputs.sha }}
+    secrets: inherit
 
   final-status-check:
     runs-on: ubuntu-latest
