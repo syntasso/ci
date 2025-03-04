@@ -23,7 +23,7 @@ on:
         type: string
 
 jobs:
-  ske-upgrade-test:
+  ske-upgrade-and-oss-test:
     runs-on: ubuntu-latest
     steps:
       - name: Check out enterprise kratix
@@ -59,7 +59,7 @@ jobs:
         env:
           GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
           GH_TOKEN: ${{ secrets.GH_RELEASE_CREATOR_TOKEN }}
-        run: ./scripts/run-ske-upgrade-test-in-kind.sh
+        run: ./scripts/run-ske-test-in-kind.sh
 
   ske-backstage-test:
     runs-on: ubuntu-latest
