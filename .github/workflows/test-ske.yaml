@@ -6,6 +6,13 @@ on:
       kratix_sha:
         description: 'Commit sha of Kratix'
         required: false
+        type: string
+  workflow_call:
+    inputs:
+      kratix_sha:
+        description: 'Commit sha of Kratix'
+        required: false
+        type: string
 
 jobs:
   ske-upgrade-test:
