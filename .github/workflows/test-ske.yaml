@@ -130,11 +130,11 @@ jobs:
           git config user.name "syntassodev"
           git config user.email "kratix@syntasso.io"
           pushd read-only-kratix
-          git checkout "${KRATIX_COMMIT_SHA}"
+            git checkout "${KRATIX_COMMIT_SHA}"
           popd
           if [ -z "$(git status --porcelain)" ]; then
-          echo "no changes to commit; exiting"
-          exit 0
+            echo "no changes to commit; exiting"
+            exit 0
           fi
           git add read-only-kratix
           git commit -m "from test-ske workflow: pushing read-only-kratix at ${KRATIX_COMMIT_SHA}"
