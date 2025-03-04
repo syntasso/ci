@@ -1,4 +1,4 @@
-name: Kratix
+name: Release Kratix
 
 on:
   workflow_dispatch:
