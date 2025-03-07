@@ -1,4 +1,4 @@
-name: Test Kratix
+name: OSS Tests
 
 on:
   workflow_dispatch:

@@ -1,4 +1,4 @@
-name: test-ske
+name: SKE Tests
 
 on:
   workflow_dispatch:
@@ -111,31 +111,3 @@ jobs:
           GH_TOKEN: ${{ secrets.GH_RELEASE_CREATOR_TOKEN }}
           DOCKER_PRUNE: "true"
         run: ./scripts/test-ske-with-backstage-in-kind.sh
-
-  update-read-only-kratix:
-    runs-on: ubuntu-latest
-    needs: [ ske-backstage-test,ske-upgrade-and-oss-test ]
-    if: "${{ github.event.inputs.sha != '' }}"
-    steps:
-      - name: Check out enterprise kratix
-        uses: actions/checkout@v4
-        with:
-          repository: syntasso/enterprise-kratix
-          submodules: recursive
-          ssh-key: ${{ secrets.ENTERPRISE_KRATIX_DEPLOY_KEY_READ_PUSH }}
-      - name: update-read-only-kratix
-        env:
-          KRATIX_COMMIT_SHA: ${{ github.event.inputs.sha }}
-        run: |
-          git config user.name "syntassodev"
-          git config user.email "kratix@syntasso.io"
-          pushd read-only-kratix
-            git checkout "${KRATIX_COMMIT_SHA}"
-          popd
-          if [ -z "$(git status --porcelain)" ]; then
-            echo "no changes to commit; exiting"
-            exit 0
-          fi
-          git add read-only-kratix
-          git commit -m "from test-ske workflow: pushing read-only-kratix at ${KRATIX_COMMIT_SHA}"
-          git push origin main

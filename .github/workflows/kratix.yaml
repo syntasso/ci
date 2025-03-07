@@ -69,13 +69,42 @@ jobs:
       sha: ${{ github.event.inputs.sha }}
     secrets: inherit
 
+  update-read-only-kratix:
+    runs-on: ubuntu-latest
+    needs: [ test-kratix, test-ske ]
+    if: "${{ github.event.inputs.sha != '' }}"
+    steps:
+      - name: Check out enterprise kratix
+        uses: actions/checkout@v4
+        with:
+          repository: syntasso/enterprise-kratix
+          submodules: recursive
+          ssh-key: ${{ secrets.ENTERPRISE_KRATIX_DEPLOY_KEY_READ_PUSH }}
+      - name: update-read-only-kratix
+        env:
+          KRATIX_COMMIT_SHA: ${{ github.event.inputs.sha }}
+        run: |
+          git config user.name "syntassodev"
+          git config user.email "kratix@syntasso.io"
+          pushd read-only-kratix
+            git checkout "${KRATIX_COMMIT_SHA}"
+          popd
+          if [ -z "$(git status --porcelain)" ]; then
+            echo "no changes to commit; exiting"
+            exit 0
+          fi
+          git add read-only-kratix
+          git commit -m "from test-ske workflow: pushing read-only-kratix at ${KRATIX_COMMIT_SHA}"
+          git push origin main
+
   final-status-check:
     runs-on: ubuntu-latest
-    needs: 
+    needs:
       - set-pending-status
       - test-kratix
       - release-kratix
       - test-ske
+      - update-read-only-kratix
     if: always()
     steps:
       - name: Generate GitHub App token
@@ -93,7 +122,7 @@ jobs:
           script: |
             const statusContext = 'ci-tests';
             const runId = process.env.GITHUB_RUN_ID || 'unknown';
-            const sha = '${{ github.event.inputs.sha }}' 
+            const sha = '${{ github.event.inputs.sha }}'
 
             // Collect job results from workflow context
             const jobResults = [
@@ -102,15 +131,15 @@ jobs:
               '${{ needs.test-ske.result }}',
             ];
 
-            const hasFailed = jobResults.some(result => 
-              result === 'failure' || 
-              result === 'timed_out' || 
+            const hasFailed = jobResults.some(result =>
+              result === 'failure' ||
+              result === 'timed_out' ||
               result === 'cancelled'
             );
 
             const state = hasFailed ? 'failure' : 'success';
             const description = hasFailed ? 'CI workflow failed' : 'CI workflow passed';
-            
+
             try {
               await github.rest.repos.createCommitStatus({
                 owner: 'syntasso',
