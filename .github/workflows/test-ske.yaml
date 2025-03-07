@@ -1,4 +1,4 @@
-name: SKE Tests
+name: test-ske
 
 on:
   workflow_dispatch:
