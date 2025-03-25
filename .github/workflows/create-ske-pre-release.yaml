@@ -18,10 +18,10 @@ jobs:
         uses: azure/setup-helm@v3
       - name: Login to ghcr
         run: |
-          echo "${{ secrets.GITHUB_TOKEN }}" | docker login --username syntassodev --password-stdin ghcr.io
-          echo "${{ secrets.GITHUB_TOKEN }}" | docker login --username syntassodev --password-stdin registry.syntasso.io
+          echo "${{ secrets.GHCR_TOKEN }}" | docker login --username syntassodev --password-stdin ghcr.io
+          echo "${{ secrets.GHCR_TOKEN }}" | docker login --username syntassodev --password-stdin registry.syntasso.io
       - name: Build and push SKE at next RC
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.ENTERPRISE_KRATIX_GH_TOKEN }}
         run: |
           ./scripts/push-ske-rc-images.sh
