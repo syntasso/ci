@@ -4,11 +4,16 @@ on:
   workflow_dispatch:
 
 jobs:
-  release-please:
+  create-pre-release:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
+      - name: Check out enterprise kratix
         uses: actions/checkout@v4
+        with:
+          repository: syntasso/enterprise-kratix
+          ssh-key: ${{ secrets.ENTERPRISE_KRATIX_DEPLOY_KEY_READ_PUSH }}
+          ref: ${{ github.event.inputs.ske_sha }}
+          submodules: recursive
       - name: Install Helm
         uses: azure/setup-helm@v3
       - name: Login to ghcr
