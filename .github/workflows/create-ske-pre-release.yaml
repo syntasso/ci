@@ -1,12 +1,7 @@
-name: release-ske
+name: Create SKE Pre-release
 
 on:
   workflow_dispatch:
-  
-permissions:
-  contents: write
-  pull-requests: write
-
 
 jobs:
   release-please:
@@ -16,25 +11,10 @@ jobs:
         uses: actions/checkout@v4
       - name: Install Helm
         uses: azure/setup-helm@v3
-      - name: Login th ghcr
+      - name: Login to ghcr
         run: |
           echo "${{ secrets.GITHUB_TOKEN }}" | docker login --username syntassodev --password-stdin ghcr.io
-          echo "${{ secrets.GITHUB_TOKEN }}" | docker login --username syntassodev --password-stdin registry.syntasso.i 
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login --username syntassodev --password-stdin registry.syntasso.io
       - name: Build and push SKE at next RC
         run: |
-          next_rc_tag=$(./scripts/generate-next-rc-version)
-          ske_platform="ghcr.io/syntasso/ske-platform"
-          ske_platform_adapter="ghcr.io/syntasso/ske-platform-pipeline-adapter"
-
-          set +e
-          docker manifest inspect $ske_platform:$next_rc_tag
-          platform_exit_code=$?
-          docker manifest inspect $ske_platform_adapter:$next_rc_tag
-          pipeline_adapter_exit_code=$?
-          set -e
-
-          if [[ $platform_exit_code -eq 0 ]] || [[ $pipeline_adapter_exit_code -eq 0 ]]; then
-            echo "Release $next_rc_tag images already exists for ske-platform and/or ske-pipeline-adapter images"
-            exit 1
-          fi
-          make build-and-push
+          ./script/push-ske-rc-images.sh
