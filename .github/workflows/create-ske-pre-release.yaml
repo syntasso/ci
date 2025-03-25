@@ -27,6 +27,7 @@ jobs:
       #     ./scripts/push-ske-rc-images.sh
       - name: Create and push pre-release tag
         run: |
+          next_rc_tag=v0.23.0-rc1
           make distribution
           new_tag=$(./scripts/tag-new-rc-version)
           echo "export NEW_TAG=\"$new_tag\"" >> "$GITHUB_ENV"
