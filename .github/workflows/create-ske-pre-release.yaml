@@ -1,0 +1,20 @@
+name: Create SKE Pre-release
+
+on:
+  workflow_dispatch:
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Install Helm
+        uses: azure/setup-helm@v3
+      - name: Login to ghcr
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login --username syntassodev --password-stdin ghcr.io
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login --username syntassodev --password-stdin registry.syntasso.io
+      - name: Build and push SKE at next RC
+        run: |
+          ./script/push-ske-rc-images.sh
