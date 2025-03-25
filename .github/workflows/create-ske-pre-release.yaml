@@ -22,4 +22,4 @@ jobs:
           echo "${{ secrets.GITHUB_TOKEN }}" | docker login --username syntassodev --password-stdin registry.syntasso.io
       - name: Build and push SKE at next RC
         run: |
-          ./script/push-ske-rc-images.sh
+          ./scripts/push-ske-rc-images.sh
