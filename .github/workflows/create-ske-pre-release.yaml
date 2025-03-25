@@ -44,3 +44,12 @@ jobs:
         run: |
           helm package charts/kratix/ --version $NEW_TAG
           mv kratix-$NEW_TAG.tgz kratix-helm-chart-$NEW_TAG.tgz
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: eu-west-2
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      - name: Package Kratix Helm Chart at Pre-Release version
+        run: |
+          ./scripts/create-pre-release-and-upload-artifacts
