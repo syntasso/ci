@@ -39,7 +39,9 @@ jobs:
           sed "s#SKE_PLATFORM_IMAGE#registry.syntasso.io/syntasso/ske-platform:$next_rc_tag#g; s#SKE_PLATFORM_PIPELINE_ADAPTER_IMAGE#registry.syntasso.io/syntasso/ske-platform-pipeline-adapter:$next_rc_tag#g" patch_pipeline_img.yaml.template > patch_pipeline_img.yaml
           kustomize build > ske-distribution.yaml
           rm patch_pipeline_img.yaml*
-          export NEW_TAG=$(./scripts/tag-new-rc-version)
+ 
+          new_tag=$(./scripts/tag-new-rc-version)
+          echo "NEW_TAG=$new_tag" >> "$GITHUB_ENV"
 
       - name: Check out Helm Charts
         uses: actions/checkout@v4
@@ -53,6 +55,7 @@ jobs:
           ./charts/scripts/generate-templates-and-crds ./ske-distribution.yaml
       - name: Package Kratix Helm Chart at Pre-Release version
         run: |
+          echo "NEW_TAG is $NEW_TAG"
           helm package charts/kratix/ --version $NEW_TAG
           mv kratix-$NEW_TAG.tgz kratix-helm-chart-$NEW_TAG.tgz
       - name: Configure AWS Credentials
