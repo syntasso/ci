@@ -27,7 +27,17 @@ jobs:
           ./scripts/push-ske-rc-images.sh
       - name: Create and push pre-release tag
         run: |
-          NEXT_RC_TAG=$(./scripts/generate-next-rc-version) make distribution
+          curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/refs/tags/kustomize/v5.6.0/hack/install_kustomize.sh" | bash
+          next_rc_tag=$(./scripts/generate-next-rc-version)
+
+          cp update_pipeline_adapter_img.yaml.template patch_pipeline_img.yaml.template
+          if grep -q "WC_IMG" ./read-only-kratix/distribution/kratix.yaml; then cp update_legacy_wc_img.yaml.template patch_pipeline_img.yaml.template; fi
+
+          # we should inject scarf here
+          sed "s#SKE_PLATFORM_IMAGE#registry.syntasso.io/syntasso/ske-platform:$next_rc_tag#g; s#SKE_PLATFORM_PIPELINE_ADAPTER_IMAGE#registry.syntasso.io/syntasso/ske-platform-pipeline-adapter:$next_rc_tag#g" patch_pipeline_img.yaml.template > patch_pipeline_img.yaml
+          kustomize build > ske-distribution.yaml
+          rm patch_pipeline_img.yaml*
+
           new_tag=$(./scripts/tag-new-rc-version)
           echo "export NEW_TAG=\"$new_tag\"" >> "$GITHUB_ENV"
       - name: Check out Helm Charts
