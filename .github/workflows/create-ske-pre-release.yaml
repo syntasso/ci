@@ -58,3 +58,16 @@ jobs:
           ./scripts/create-pre-release-and-upload-artifacts
         env:
           GH_TOKEN: ${{ secrets.ENTERPRISE_KRATIX_GH_TOKEN }}
+
+  upgrade-lre:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: eu-west-2
+          role-to-assume: ${{ secrets.EKS_KUBECTL_ADMIN_ROLE_ARN }}
+          role-session-name: test
+      - uses: hashicorp/setup-terraform@v3
