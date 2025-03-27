@@ -82,6 +82,8 @@ jobs:
       - name: Authenticate against LRE
         run: |
           ./scripts/authenticate-against-lre
+        env:
+          TF_TOKEN_app_terraform_io: ${{ secrets.TF_TOKEN_app_terraform_io }}
       - name: Install Helm
         uses: azure/setup-helm@v3
       - name: Upgrade LRE
