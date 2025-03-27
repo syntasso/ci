@@ -70,4 +70,5 @@ jobs:
           aws-region: eu-west-2
           role-to-assume: ${{ secrets.EKS_KUBECTL_ADMIN_ROLE_ARN }}
           role-session-name: test
+          role-skip-session-tagging: true
       - uses: hashicorp/setup-terraform@v3
