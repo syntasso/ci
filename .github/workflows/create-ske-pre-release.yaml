@@ -95,7 +95,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.ENTERPRISE_KRATIX_GH_TOKEN }}
           SKE_LICENSE_TOKEN: ${{ secrets.SKE_LICENSE_TOKEN }}
-      - name: Kratix core tests post upgrade
+      - name: Kratix system tests post upgrade
         run: |
           cd read-only-kratix
           git status
@@ -103,5 +103,5 @@ jobs:
           # system tests are designed for 1 worker 1 platform, lets remove the
           # label to prevent this second worker coming into play
           kubectl --context ${PLATFORM} label destinations.platform.kratix.io testing-worker-bucket environment-
-          LRE="true" WORKER_CONTEXT=${WORKER_GIT} WORKER_NAME=${WORKER_GIT} PLATFORM_CONTEXT=${PLATFORM} PLATFORM_NAME=${PLATFORM} go run github.com/onsi/ginkgo/v2/ginkgo -p --nodes=1 -v --output-interceptor-mode=none ./test/core/
+          LRE="true" WORKER_CONTEXT=${WORKER_GIT} WORKER_NAME=${WORKER_GIT} PLATFORM_CONTEXT=${PLATFORM} PLATFORM_NAME=${PLATFORM} go run github.com/onsi/ginkgo/v2/ginkgo -p --nodes=1 -v --output-interceptor-mode=none ./test/system/
           kubectl --context ${PLATFORM} label destinations.platform.kratix.io testing-worker-bucket environment=dev
