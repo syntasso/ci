@@ -86,6 +86,8 @@ jobs:
           TF_TOKEN_app_terraform_io: ${{ secrets.TF_TOKEN_app_terraform_io }}
       - name: Install Helm
         uses: azure/setup-helm@v3
+        with:
+          version: v3.16.4
       - name: Upgrade LRE
         run: |
           latest_rc="$(gh release list --json tagName --jq '.[0].tagName')"
