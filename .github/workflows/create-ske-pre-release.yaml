@@ -72,3 +72,22 @@ jobs:
           role-session-name: test
           role-skip-session-tagging: true
       - uses: hashicorp/setup-terraform@v3
+      - name: Check out enterprise kratix
+        uses: actions/checkout@v4
+        with:
+          repository: syntasso/enterprise-kratix
+          ssh-key: ${{ secrets.ENTERPRISE_KRATIX_DEPLOY_KEY_READ_PUSH }}
+          ref: ${{ github.event.inputs.ske_sha }}
+          submodules: recursive
+      - name: Authenticate against LRE
+        run: |
+          ./scripts/authenticate-against-lre
+      - name: Install Helm
+        uses: azure/setup-helm@v3
+      - name: Upgrade LRE
+        run: |
+          latest_rc="$(gh release list --json tagName --jq '.[0].tagName')"
+          ./scripts/upgrade-lre $latest_rc
+        env:
+          GH_TOKEN: ${{ secrets.ENTERPRISE_KRATIX_GH_TOKEN }}
+          SKE_LICENSE_TOKEN: ${{ secrets.SKE_LICENSE_TOKEN }}
