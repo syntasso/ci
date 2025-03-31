@@ -100,8 +100,7 @@ jobs:
           cd read-only-kratix
           git status
           make gitea-cli
-          # kratix tests are designed for 1 worker 1 platform, lets remove the
-          # label to prevent this second worker coming into play
-          kubectl --context ${PLATFORM} label destinations.platform.kratix.io testing-worker-bucket environment-
-          LRE="true" WORKER_CONTEXT=${WORKER_GIT} WORKER_NAME=${WORKER_GIT} PLATFORM_CONTEXT=${PLATFORM} PLATFORM_NAME=${PLATFORM} DESTINATION_NAME=${WORKER_GIT} go run github.com/onsi/ginkgo/v2/ginkgo -v ./test/core/
-          kubectl --context ${PLATFORM} label destinations.platform.kratix.io testing-worker-bucket environment=dev
+          # kratix tests are designed for 1 worker 1 platform
+          kubectl --context ${PLATFORM} label destinations.platform.kratix.io testing-worker-git environment-
+          LRE="true" WORKER_CONTEXT=${WORKER_BUCKET} WORKER_NAME=${WORKER_BUCKET} PLATFORM_CONTEXT=${PLATFORM} PLATFORM_NAME=${PLATFORM} DESTINATION_NAME=${WORKER_BUCKET} go run github.com/onsi/ginkgo/v2/ginkgo -v ./test/core/
+          kubectl --context ${PLATFORM} label destinations.platform.kratix.io testing-worker-git environment=dev
