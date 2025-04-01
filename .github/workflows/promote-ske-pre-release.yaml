@@ -28,7 +28,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.ENTERPRISE_KRATIX_GH_TOKEN }}
         run: |
-          ./scripts/promote-latest-rc-to-full-release.sh
+          ./scripts/promote-latest-rc-to-full-release
 
 #  upgrade-lre:
 #    runs-on: ubuntu-latest
