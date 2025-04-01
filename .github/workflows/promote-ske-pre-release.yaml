@@ -3,6 +3,10 @@ name: Promote SKE Pre-release
 on:
   workflow_dispatch:
 
+env:
+  SKE_PLATFORM_IMG: "ghcr.io/syntasso/ske-platform"
+  SKE_PLATFORM_PIPELINE_ADAPTER_IMG: "ghcr.io/syntasso/ske-platform-pipeline-adapter"
+
 jobs:
   promote-pre-release:
     runs-on: ubuntu-latest
@@ -14,21 +18,39 @@ jobs:
           ssh-key: ${{ secrets.ENTERPRISE_KRATIX_DEPLOY_KEY_READ_PUSH }}
           ref: ${{ github.event.inputs.ske_sha }}
           submodules: recursive
+      - name: Set env vars
+        run: |
+          latest_pre_release_tag=$(gh release list --json tagName --jq '[.[] | select(.tagName | match("^v"))][0].tagName')
+          latest_release_tag=$(echo $latest_pre_release_tag | sed 's/-rc[0-9]*//')
+          s3_latest_release_dir="s3://syntasso-enterprise-releases/ske/${latest_release_tag}/"
+          echo "LATEST_PRE_RELEASE_TAG=$latest_pre_release_tag" >> "$GITHUB_ENV"
+          echo "LATEST_RELEASE_TAG=$latest_release_tag" >> "$GITHUB_ENV"
+          echo "S3_LATEST_RELEASE_DIR=$s3_latest_release_dir" >> "$GITHUB_ENV"
       - name: Login to ghcr
         run: |
           echo "${{ secrets.GHCR_TOKEN }}" | docker login --username syntassodev --password-stdin ghcr.io
           echo "${{ secrets.GHCR_TOKEN }}" | docker login --username syntassodev --password-stdin registry.syntasso.io
+      - name: Check SKE version is already released
+        env:
+          GH_TOKEN: ${{ secrets.ENTERPRISE_KRATIX_GH_TOKEN }}
+        run: |
+          ./scripts/check-ske-release-does-not-exist
+      - name: Re-tag SKE artifacts to full release
+        env:
+          GH_TOKEN: ${{ secrets.ENTERPRISE_KRATIX_GH_TOKEN }}
+        run: |
+          ./scripts/retag-ske-artifacts-to-full-release
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-region: eu-west-2
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-      - name: Promote latest RC to full release
+      - name: Create SKE release
         env:
           GH_TOKEN: ${{ secrets.ENTERPRISE_KRATIX_GH_TOKEN }}
         run: |
-          ./scripts/promote-latest-rc-to-full-release
+          ./scripts/create-ske-release
 
 #  upgrade-lre:
 #    runs-on: ubuntu-latest
