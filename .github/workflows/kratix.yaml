@@ -1,9 +1,12 @@
 name: Kratix
-run-name: Tests for kratix/${{inputs.sha}} by ${{inputs.author}}
+run-name: Tests for kratix/${{inputs.shortSHA}} by ${{inputs.author}}
 
 on:
   workflow_dispatch:
     inputs:
+      shortSHA:
+        description: 'Short commit sha of Kratix'
+        required: false
       sha:
         description: 'Commit sha of Kratix'
         required: true
@@ -59,7 +62,7 @@ jobs:
             await core.summary
               .addHeading('Run Summary')
               .addTable([
-                [{data: 'Commit SHA', header: true}, {author: 'Author', header: true}, {data: 'Message', header: true}],
+                [{data: 'Commit SHA', header: true}, {data: 'Author', header: true}, {data: 'Message', header: true}],
                 [sha, author, message],
               ])
               .addLink('View Commit on Github', 'https://github.com/syntasso/kratix/commit/${{ github.event.inputs.sha }}')
