@@ -1,3 +1,4 @@
+name: Kratix
 run-name: Tests for kratix/${{inputs.sha}} by ${{inputs.author}}
 
 on:
