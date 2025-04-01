@@ -1,0 +1,78 @@
+name: Promote SKE Pre-release
+
+on:
+  workflow_dispatch:
+
+jobs:
+  promote-pre-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out enterprise kratix
+        uses: actions/checkout@v4
+        with:
+          repository: syntasso/enterprise-kratix
+          ssh-key: ${{ secrets.ENTERPRISE_KRATIX_DEPLOY_KEY_READ_PUSH }}
+          ref: ${{ github.event.inputs.ske_sha }}
+          submodules: recursive
+      - name: Login to ghcr
+        run: |
+          echo "${{ secrets.GHCR_TOKEN }}" | docker login --username syntassodev --password-stdin ghcr.io
+          echo "${{ secrets.GHCR_TOKEN }}" | docker login --username syntassodev --password-stdin registry.syntasso.io
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: eu-west-2
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      - name: Promote latest RC to full release
+        env:
+          GH_TOKEN: ${{ secrets.ENTERPRISE_KRATIX_GH_TOKEN }}
+        run: |
+          ./scripts/promote-latest-rc-to-full-release.sh
+
+#  upgrade-lre:
+#    runs-on: ubuntu-latest
+#    needs: [create-pre-release]
+#    steps:
+#      - name: Configure AWS Credentials
+#        uses: aws-actions/configure-aws-credentials@v4
+#        with:
+#          aws-access-key-id: ${{ secrets.ENTERPRISE_KRATIX_TEST_AWS_ACCESS_KEY_ID }}
+#          aws-secret-access-key: ${{ secrets.ENTERPRISE_KRATIX_TEST_AWS_SECRET_ACCESS_KEY }}
+#          aws-region: eu-west-2
+#          role-to-assume: ${{ secrets.EKS_KUBECTL_ADMIN_ROLE_ARN }}
+#          role-session-name: test
+#          role-skip-session-tagging: true
+#      - uses: hashicorp/setup-terraform@v3
+#      - name: Check out enterprise kratix
+#        uses: actions/checkout@v4
+#        with:
+#          repository: syntasso/enterprise-kratix
+#          ssh-key: ${{ secrets.ENTERPRISE_KRATIX_DEPLOY_KEY_READ_PUSH }}
+#          ref: ${{ github.event.inputs.ske_sha }}
+#          submodules: recursive
+#      - name: Authenticate against LRE
+#        run: |
+#          ./scripts/authenticate-against-lre
+#        env:
+#          TF_TOKEN_app_terraform_io: ${{ secrets.TF_TOKEN_app_terraform_io }}
+#      - name: Install Helm
+#        uses: azure/setup-helm@v3
+#        with:
+#          version: v3.16.4
+#      - name: Upgrade LRE
+#        run: |
+#          latest_rc="$(gh release list --json tagName --jq '.[0].tagName')"
+#          ./scripts/upgrade-lre $latest_rc
+#        env:
+#          GH_TOKEN: ${{ secrets.ENTERPRISE_KRATIX_GH_TOKEN }}
+#          SKE_LICENSE_TOKEN: ${{ secrets.SKE_LICENSE_TOKEN }}
+#      - name: Kratix core tests post upgrade
+#        run: |
+#          cd read-only-kratix
+#          git status
+#          make gitea-cli
+#          # kratix tests are designed for 1 worker 1 platform
+#          kubectl --context ${PLATFORM} label destinations.platform.kratix.io testing-worker-git environment-
+#          LRE="true" WORKER_CONTEXT=${WORKER_BUCKET} WORKER_NAME=${WORKER_BUCKET} PLATFORM_CONTEXT=${PLATFORM} PLATFORM_NAME=${PLATFORM} DESTINATION_NAME=${WORKER_BUCKET} go run github.com/onsi/ginkgo/v2/ginkgo -v ./test/core/
+#          kubectl --context ${PLATFORM} label destinations.platform.kratix.io testing-worker-git environment=dev
