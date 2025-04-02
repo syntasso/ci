@@ -1,5 +1,5 @@
 name: Kratix
-run-name: Tests for kratix/${{inputs.shortSHA}} by ${{inputs.author}}
+run-name: Tests for kratix/${{github.event.inputs.shortSHA}} by ${{github.event.inputs.author}}
 
 on:
   workflow_dispatch:
