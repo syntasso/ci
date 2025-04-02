@@ -4,8 +4,30 @@ on:
   workflow_dispatch:
 
 jobs:
+  security-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out enterprise kratix
+        uses: actions/checkout@v4
+        with:
+          repository: syntasso/enterprise-kratix
+          ssh-key: ${{ secrets.ENTERPRISE_KRATIX_DEPLOY_KEY_READ_PUSH }}
+          ref: ${{ github.event.inputs.ske_sha }}
+          submodules: recursive
+      - name: Install Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: 1.23
+          check-latest: true
+      - name: Snyk golang scan on kratix
+        uses: snyk/actions/golang@master
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          args: --severity-threshold=high
   create-pre-release:
     runs-on: ubuntu-latest
+    needs: [security-scan]
     steps:
       - name: Check out enterprise kratix
         uses: actions/checkout@v4
@@ -32,6 +54,20 @@ jobs:
           make distribution
           new_tag=$(./scripts/tag-new-rc-version)
           echo "NEW_TAG=$new_tag" >> "$GITHUB_ENV"
+      - name: Snyk image scan on kratix
+        uses: snyk/actions/docker@master
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          image: ghcr.io/syntasso/ske-platform:$NEW_TAG
+          args: --severity-threshold=high
+      - name: Snyk image scan on pipeline-adapter
+        uses: snyk/actions/docker@master
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          image: ghcr.io/syntasso/ske-platform-pipeline-adapter:$NEW_TAG
+          args: --severity-threshold=high
       - name: Check out Helm Charts
         uses: actions/checkout@v4
         with:

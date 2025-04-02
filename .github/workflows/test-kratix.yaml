@@ -41,6 +41,10 @@ jobs:
         run: |
           curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s v1.63.4
           ./bin/golangci-lint run --config=.golangci-required.yml
+      - name: Go vulnerability check
+        run: |
+          go install golang.org/x/vuln/cmd/govulncheck@latest
+          govulncheck ./...
 
   system-test:
     runs-on: ubuntu-latest
