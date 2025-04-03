@@ -16,7 +16,6 @@ jobs:
         with:
           repository: syntasso/enterprise-kratix
           ssh-key: ${{ secrets.ENTERPRISE_KRATIX_DEPLOY_KEY_READ_PUSH }}
-          ref: ${{ github.event.inputs.ske_sha }}
           submodules: recursive
       - name: Set env vars
         run: |
