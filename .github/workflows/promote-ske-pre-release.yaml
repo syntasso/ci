@@ -54,6 +54,9 @@ jobs:
         run: |
           ./scripts/create-ske-release
       - name: Generate changelog
+        env:
+          GH_TOKEN: ${{ secrets.ENTERPRISE_KRATIX_GH_TOKEN }}
         run: |
+          git fetch --tags
           changelog=$(./scripts/generate-changelog)
           echo "$changelog" >> "$GITHUB_STEP_SUMMARY"
