@@ -17,6 +17,7 @@ jobs:
           repository: syntasso/enterprise-kratix
           ssh-key: ${{ secrets.ENTERPRISE_KRATIX_DEPLOY_KEY_READ_PUSH }}
           submodules: recursive
+          fetch-depth: 0
       - name: Set env vars
         run: |
           latest_pre_release_tag=$(gh release list --json tagName --jq '[.[] | select(.tagName | match("^v"))][0].tagName')
