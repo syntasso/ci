@@ -110,4 +110,10 @@ jobs:
           GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
           GH_TOKEN: ${{ secrets.GH_RELEASE_CREATOR_TOKEN }}
           DOCKER_PRUNE: "true"
-        run: ./scripts/test-ske-with-backstage-in-kind.sh
+        run: |
+          # deleting unnecessary files to gain some hard disk space
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /opt/ghc
+          sudo rm -rf "/usr/local/share/boost"
+          sudo rm -rf "$AGENT_TOOLSDIRECTORY"
+          ./scripts/test-ske-with-backstage-in-kind.sh
