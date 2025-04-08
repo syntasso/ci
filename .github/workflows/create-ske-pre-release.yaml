@@ -36,12 +36,6 @@ jobs:
           ssh-key: ${{ secrets.ENTERPRISE_KRATIX_DEPLOY_KEY_READ_PUSH }}
           ref: ${{ github.event.inputs.ske_sha }}
           submodules: recursive
-      - name: Install Helm
-        uses: azure/setup-helm@v3
-      - name: Login to ghcr
-        run: |
-          echo "${{ secrets.GHCR_TOKEN }}" | docker login --username syntassodev --password-stdin ghcr.io
-          echo "${{ secrets.GHCR_TOKEN }}" | docker login --username syntassodev --password-stdin registry.syntasso.io
       - name: Build and push SKE at next RC
         env:
           GH_TOKEN: ${{ secrets.ENTERPRISE_KRATIX_GH_TOKEN }}
@@ -68,21 +62,6 @@ jobs:
         with:
           image: ghcr.io/syntasso/ske-platform-pipeline-adapter:$NEW_TAG
           args: --severity-threshold=high --username=syntassodev --password=${{ secrets.GHCR_TOKEN }}
-      - name: Check out Helm Charts
-        uses: actions/checkout@v4
-        with:
-          repository: syntasso/helm-charts
-          branch: kratix-v0.0.0-latest
-          fetch-depth: 1
-          path: charts
-      - name: Generate Helm Chart with SKE distribution
-        run: |
-          ./charts/scripts/generate-templates-and-crds ./ske-distribution.yaml
-      - name: Package Kratix Helm Chart at Pre-Release version
-        run: |
-          echo "NEW_TAG is $NEW_TAG"
-          helm package charts/kratix/ --version $NEW_TAG
-          mv kratix-$NEW_TAG.tgz kratix-helm-chart-$NEW_TAG.tgz
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
