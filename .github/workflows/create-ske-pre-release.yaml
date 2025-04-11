@@ -38,12 +38,12 @@ jobs:
           submodules: recursive
       - name: Build and push SKE at next RC
         env:
-          GH_TOKEN: ${{ secrets.ENTERPRISE_KRATIX_GH_TOKEN }}
+          GH_TOKEN: ${{ secrets.ORG_PACKAGE_PUBLISH_TOKEN }}
         run: |
           ./scripts/build-and-push-ske-rc-images
       - name: Create and push pre-release tag
         env:
-          GH_TOKEN: ${{ secrets.ENTERPRISE_KRATIX_GH_TOKEN }}
+          GH_TOKEN: ${{ secrets.ORG_PACKAGE_PUBLISH_TOKEN }}
         run: |
           make distribution
           new_tag=$(./scripts/tag-new-rc-version)
@@ -72,7 +72,7 @@ jobs:
         run: |
           ./scripts/create-pre-release
         env:
-          GH_TOKEN: ${{ secrets.ENTERPRISE_KRATIX_GH_TOKEN }}
+          GH_TOKEN: ${{ secrets.ORG_PACKAGE_PUBLISH_TOKEN }}
 
   upgrade-lre:
     runs-on: ubuntu-latest
@@ -109,7 +109,7 @@ jobs:
           latest_rc="$(gh release list --json tagName --jq '.[0].tagName')"
           ./scripts/upgrade-lre $latest_rc
         env:
-          GH_TOKEN: ${{ secrets.ENTERPRISE_KRATIX_GH_TOKEN }}
+          GH_TOKEN: ${{ secrets.ORG_PACKAGE_PUBLISH_TOKEN }}
           SKE_LICENSE_TOKEN: ${{ secrets.SKE_LICENSE_TOKEN }}
       - name: Kratix core tests post upgrade
         run: |
