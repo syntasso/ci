@@ -76,7 +76,7 @@ jobs:
         run: |
           ./scripts/create-pre-release
         env:
-          GH_TOKEN: ${{ secrets.ORG_PACKAGE_PUBLISH_TOKEN }}
+          GH_TOKEN: ${{ secrets.ENTERPRISE_KRATIX_GH_TOKEN }}
 
   upgrade-lre:
     runs-on: ubuntu-latest
@@ -113,7 +113,7 @@ jobs:
           latest_rc="$(gh release list --json tagName --jq '.[0].tagName')"
           ./scripts/upgrade-lre $latest_rc
         env:
-          GH_TOKEN: ${{ secrets.ORG_PACKAGE_PUBLISH_TOKEN }}
+          GH_TOKEN: ${{ secrets.ENTERPRISE_KRATIX_GH_TOKEN }}
           SKE_LICENSE_TOKEN: ${{ secrets.SKE_LICENSE_TOKEN }}
       - name: Kratix core tests post upgrade
         run: |
