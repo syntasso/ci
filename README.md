@@ -1,6 +1,6 @@
 # CI
 
-The workflows for testing and releasing Syntasso Artifacts.
+The workflows for testing and releasing Syntasso Artifacts via Github Actions.
 
 | Pipeline | Status                                                                              |
 |----------|-------------------------------------------------------------------------------------|
