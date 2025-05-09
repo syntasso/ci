@@ -112,7 +112,7 @@ jobs:
         env:
           TF_TOKEN_app_terraform_io: ${{ secrets.TF_TOKEN_app_terraform_io }}
       - name: Install Helm
-        uses: azure/setup-helm@v3
+        uses: azure/setup-helm@v4.3.0
         with:
           version: v3.16.4
       - name: Upgrade LRE
