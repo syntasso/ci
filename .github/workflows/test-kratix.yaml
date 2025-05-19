@@ -149,6 +149,8 @@ jobs:
       - name: e2e-demo-test-helm-git
         run: |
           STATE_STORE="git" ./scripts/helm-e2e-test.sh
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   integration-test-bucket:
     runs-on: ubuntu-latest
@@ -184,3 +186,5 @@ jobs:
       - name: e2e-demo-test-helm-bucket
         run: |
           STATE_STORE="bucket" ./scripts/helm-e2e-test.sh
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
