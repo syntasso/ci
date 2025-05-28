@@ -116,7 +116,7 @@ jobs:
             exit 0
           fi
           git add read-only-kratix
-          git commit -m "from test-ske workflow: pushing read-only-kratix at ${KRATIX_COMMIT_SHA}"
+          git commit -m "from test-ske workflow: pushing read-only-kratix at ${KRATIX_COMMIT_SHA} [skip ci]"
           git push origin main
 
   final-status-check:
