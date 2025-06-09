@@ -63,6 +63,7 @@ jobs:
       - name: Quick start tests
         env:
           GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_RELEASE_CREATOR_TOKEN }}
         run: |
           cd ske-quick-start-installer/
           make system-test
