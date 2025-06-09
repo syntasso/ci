@@ -3,6 +3,11 @@ name: test-ske
 on:
   workflow_dispatch:
     inputs:
+      ssh_session:
+        type: boolean
+        description: 'Run the build with tmate debugging.'
+        required: false
+        default: false
       sha:
         description: 'Commit sha of Kratix'
         required: false
@@ -40,6 +45,12 @@ jobs:
           repository: syntasso/kratix
           ref: ${{ github.event.inputs.sha }}
           path: read-only-kratix
+      - name: Start tmate ssh debugging session
+        uses: mxschmitt/action-tmate@v3
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.ssh_session }}
+        with:
+          limit-access-to-actor: true
+          detached: true
       - name: Install Go
         uses: actions/setup-go@v5
         with:
