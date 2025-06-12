@@ -59,5 +59,6 @@ jobs:
           GH_TOKEN: ${{ secrets.ENTERPRISE_KRATIX_GH_TOKEN }}
         run: |
           git fetch --tags
-          changelog=$(./scripts/generate-changelog)
+          ./scripts/generate-changelog
+          changelog=$(cat final-changelog.md)
           echo "$changelog" >> "$GITHUB_STEP_SUMMARY"

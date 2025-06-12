@@ -80,7 +80,8 @@ jobs:
       - name: Generate changelog
         run: |
           git fetch --tags
-          changelog=$(LATEST_RELEASE_TAG=$NEW_TAG ./scripts/generate-changelog)
+          LATEST_RELEASE_TAG=v0.28.0-rc3 ./scripts/generate-changelog
+          changelog=$(cat final-changelog.md)
           echo "$changelog" >> "$GITHUB_STEP_SUMMARY"
         env:
           GH_TOKEN: ${{ secrets.ENTERPRISE_KRATIX_GH_TOKEN }}
