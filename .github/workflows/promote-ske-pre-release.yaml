@@ -38,6 +38,12 @@ jobs:
           GH_TOKEN: ${{ secrets.ENTERPRISE_KRATIX_GH_TOKEN }}
         run: |
           ./scripts/check-ske-release-does-not-exist
+      - name: Verify release images
+        run: |
+          ./scripts/verify-images ${{ env.LATEST_PRE_RELEASE_TAG }}
+      - name: Verify SBOM artifacts
+        run: |
+          ./scripts/verify-sboms ${{ env.LATEST_PRE_RELEASE_TAG }}
       - name: Re-tag SKE artifacts to full release
         env:
           GH_TOKEN: ${{ secrets.ENTERPRISE_KRATIX_GH_TOKEN }}
