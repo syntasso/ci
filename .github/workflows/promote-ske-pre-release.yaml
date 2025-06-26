@@ -33,7 +33,7 @@ jobs:
         run: |
           echo "${{ secrets.GHCR_TOKEN }}" | docker login --username syntassodev --password-stdin ghcr.io
           echo "${{ secrets.GHCR_TOKEN }}" | docker login --username syntassodev --password-stdin registry.syntasso.io
-      - name: Check SKE version is already released
+      - name: Verify SKE release does not exist
         env:
           GH_TOKEN: ${{ secrets.ENTERPRISE_KRATIX_GH_TOKEN }}
         run: |
@@ -59,7 +59,8 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.ENTERPRISE_KRATIX_GH_TOKEN }}
         run: |
-          ./scripts/create-ske-release
+          export TAG=${LATEST_RELEASE_TAG}
+          ./scripts/create-release
       - name: Generate changelog
         env:
           GH_TOKEN: ${{ secrets.ENTERPRISE_KRATIX_GH_TOKEN }}

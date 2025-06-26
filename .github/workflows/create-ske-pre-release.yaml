@@ -74,9 +74,10 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
       - name: Create Github release and upload artifacts to s3
         run: |
-          ./scripts/create-pre-release
+          TAG=${NEW_TAG} ./scripts/create-release
         env:
           GH_TOKEN: ${{ secrets.ENTERPRISE_KRATIX_GH_TOKEN }}
+          PRE_RELEASE: true
       - name: Generate changelog
         run: |
           git fetch --tags
