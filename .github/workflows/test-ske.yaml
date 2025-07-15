@@ -193,6 +193,12 @@ jobs:
         uses: fluxcd/flux2/action@main
         with:
           version: '2.4.0'
+      - name: Start tmate ssh debugging session
+        uses: mxschmitt/action-tmate@v3
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.ssh_session }}
+        with:
+          limit-access-to-actor: true
+          detached: true
       - name: Run make test-e2e-ci
         run: |
           cd ske-operator
