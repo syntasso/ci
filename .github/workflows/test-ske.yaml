@@ -201,7 +201,6 @@ jobs:
           detached: true
       - name: Run make test-e2e-ci
         run: |
-          cd ske-operator
           make test-e2e-ci
         working-directory: ske-operator
         env:
