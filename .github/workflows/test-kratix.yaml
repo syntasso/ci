@@ -37,6 +37,7 @@ jobs:
           repository: syntasso/kratix
           ref: ${{ github.event.inputs.sha }}
           path: kratix
+          ssh_session: ${{ github.event.inputs.ssh_session }}
       - name: Unit Tests
         run: |
           cd kratix
@@ -64,6 +65,7 @@ jobs:
           repository: syntasso/kratix
           ref: ${{ github.event.inputs.sha }}
           path: kratix
+          ssh_session: ${{ github.event.inputs.ssh_session }}
       - name: System Tests
         run: |
           cd kratix
@@ -81,6 +83,7 @@ jobs:
           repository: syntasso/kratix
           ref: ${{ github.event.inputs.sha }}
           path: kratix
+          ssh_session: ${{ github.event.inputs.ssh_session }}
       - name: System Tests
         run: |
           cd kratix
@@ -98,6 +101,7 @@ jobs:
           repository: syntasso/kratix
           ref: ${{ github.event.inputs.sha }}
           path: kratix
+          ssh_session: ${{ github.event.inputs.ssh_session }}
       - name: System Tests
         run: |
           cd kratix
@@ -115,6 +119,7 @@ jobs:
           repository: syntasso/kratix
           ref: ${{ github.event.inputs.sha }}
           path: kratix
+          ssh_session: ${{ github.event.inputs.ssh_session }}
       - name: Checkout out kratix helm charts
         uses: actions/checkout@v4
         with:
@@ -141,6 +146,7 @@ jobs:
           repository: syntasso/kratix
           ref: ${{ github.event.inputs.sha }}
           path: kratix
+          ssh_session: ${{ github.event.inputs.ssh_session }}
       - name: Checkout out kratix helm charts
         uses: actions/checkout@v4
         with:

@@ -34,6 +34,10 @@ inputs:
     description: 'Path to checkout submodule repository into'
     required: false
     default: ''
+  ssh_session:
+    description: 'Whether to enable tmate ssh debugging session (true/false)'
+    required: false
+    default: 'false'
 
 runs:
   using: 'composite'
@@ -57,7 +61,7 @@ runs:
         path: ${{ inputs.submodule_path }}
 
     - name: Start tmate ssh debugging session
-      if: "${{ github.event_name == 'workflow_dispatch' && github.event.inputs.ssh_session }}"
+      if: "${{ inputs.ssh_session == 'true' }}"
       uses: mxschmitt/action-tmate@v3
       with:
         limit-access-to-actor: true

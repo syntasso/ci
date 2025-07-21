@@ -44,6 +44,7 @@ jobs:
           submodule_repository: syntasso/kratix
           submodule_ref: ${{ github.event.inputs.sha }}
           submodule_path: enterprise-kratix/read-only-kratix
+          ssh_session: ${{ github.event.inputs.ssh_session }}
       - name: Quick start tests
         env:
           GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
@@ -68,6 +69,7 @@ jobs:
           submodule_repository: syntasso/kratix
           submodule_ref: ${{ github.event.inputs.sha }}
           submodule_path: enterprise-kratix/read-only-kratix
+          ssh_session: ${{ github.event.inputs.ssh_session }}
       - name: Install vCluster CLI
         uses: loft-sh/setup-vcluster@main
       - name: Upgrade tests
@@ -94,6 +96,7 @@ jobs:
           submodule_repository: syntasso/kratix
           submodule_ref: ${{ github.event.inputs.sha }}
           submodule_path: enterprise-kratix/read-only-kratix
+          ssh_session: ${{ github.event.inputs.ssh_session }}
       - name: Setup Backstage Environment
         uses: ./.github/actions/setup-backstage
         with:
@@ -128,6 +131,7 @@ jobs:
           submodule_repository: syntasso/kratix
           submodule_ref: ${{ github.event.inputs.sha }}
           submodule_path: enterprise-kratix/read-only-kratix
+          ssh_session: ${{ github.event.inputs.ssh_session }}
       - name: Run make test-e2e-ci
         run: |
           cd enterprise-kratix/ske-operator
@@ -152,6 +156,7 @@ jobs:
           submodule_repository: syntasso/kratix
           submodule_ref: ${{ github.event.inputs.sha }}
           submodule_path: enterprise-kratix/read-only-kratix
+          ssh_session: ${{ github.event.inputs.ssh_session }}
       - name: Run make test-e2e-ci
         run: |
           cd enterprise-kratix/ske-cli
