@@ -14,14 +14,14 @@ runs:
       with:
         repository: syntasso/backstage
         ssh-key: ${{ inputs.backstage_deploy_key }}
-        path: backstage-plugins
+        path: enterprise-kratix/backstage-plugins
 
     - name: Install Backstage plugins
       shell: bash
       run: |
-        pushd backstage-plugins/plugins/ske-backend
+        pushd enterprise-kratix/backstage-plugins/plugins/ske-backend
           yarn install
         popd
-        pushd backstage-plugins/plugins/ske-frontend
+        pushd enterprise-kratix/backstage-plugins/plugins/ske-frontend
           yarn install
         popd 
