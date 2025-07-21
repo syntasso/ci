@@ -31,46 +31,51 @@ jobs:
   ske-quick-start-test:
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout ci repository
+        uses: actions/checkout@v4
       - name: Setup Common Environment
         uses: ./.github/actions/setup-common
         with:
           ske_sha: ${{ github.event.inputs.ske_sha }}
           sha: ${{ github.event.inputs.sha }}
-          enable_tmate: 'true'
       - name: Quick start tests
         env:
           GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
           GH_TOKEN: ${{ secrets.GH_RELEASE_CREATOR_TOKEN }}
         run: |
-          cd ske-quick-start-installer/
+          cd enterprise-kratix/ske-quick-start-installer/
           make system-test
 
   ske-upgrade-and-oss-test:
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout ci repository
+        uses: actions/checkout@v4
       - name: Setup Common Environment
         uses: ./.github/actions/setup-common
         with:
           ske_sha: ${{ github.event.inputs.ske_sha }}
           sha: ${{ github.event.inputs.sha }}
-          enable_flux: 'true'
       - name: Install vCluster CLI
         uses: loft-sh/setup-vcluster@main
       - name: Upgrade tests
         env:
           GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
           GH_TOKEN: ${{ secrets.GH_RELEASE_CREATOR_TOKEN }}
-        run: ./scripts/run-ske-test-in-kind.sh
+        run: |
+          cd enterprise-kratix
+          ./scripts/run-ske-test-in-kind.sh
 
   ske-backstage-test:
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout ci repository
+        uses: actions/checkout@v4
       - name: Setup Common Environment
         uses: ./.github/actions/setup-common
         with:
           ske_sha: ${{ github.event.inputs.ske_sha }}
           sha: ${{ github.event.inputs.sha }}
-          enable_flux: 'true'
       - name: Setup Backstage Environment
         uses: ./.github/actions/setup-backstage
       - name: Backstage tests
@@ -84,22 +89,23 @@ jobs:
           sudo rm -rf /opt/ghc
           sudo rm -rf "/usr/local/share/boost"
           sudo rm -rf /usr/local/lib/android
+          cd enterprise-kratix
           ./scripts/test-ske-with-backstage-in-kind.sh
 
   ske-operator:
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout ci repository
+        uses: actions/checkout@v4
       - name: Setup Common Environment
         uses: ./.github/actions/setup-common
         with:
           ske_sha: ${{ github.event.inputs.ske_sha }}
           sha: ${{ github.event.inputs.sha }}
-          enable_tmate: 'true'
-          enable_flux: 'true'
       - name: Run make test-e2e-ci
         run: |
+          cd enterprise-kratix/ske-operator
           make test-e2e-ci
-        working-directory: ske-operator
         env:
           GITHUB_TOKEN: ${{ secrets.GHCR_TOKEN }}
           SKE_LICENSE_TOKEN: ${{ secrets.SKE_LICENSE_TOKEN }}
@@ -107,17 +113,17 @@ jobs:
   ske-cli:
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout ci repository
+        uses: actions/checkout@v4
       - name: Setup Common Environment
         uses: ./.github/actions/setup-common
         with:
           ske_sha: ${{ github.event.inputs.ske_sha }}
           sha: ${{ github.event.inputs.sha }}
-          enable_tmate: 'true'
-          enable_flux: 'true'
       - name: Run make test-e2e-ci
         run: |
+          cd enterprise-kratix/ske-cli
           make test-e2e-ci
-        working-directory: ske-cli
         env:
           SKE_LICENSE_TOKEN: ${{ secrets.SKE_LICENSE_TOKEN }}
           KRATIX_DEVELOPER: true

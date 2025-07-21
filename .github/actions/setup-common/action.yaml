@@ -9,14 +9,6 @@ inputs:
     description: 'Commit sha of Kratix'
     required: false
     default: ''
-  enable_tmate:
-    description: 'Enable tmate debugging session'
-    required: false
-    default: 'false'
-  enable_flux:
-    description: 'Setup Flux CLI'
-    required: false
-    default: 'false'
 
 runs:
   using: 'composite'
@@ -27,6 +19,7 @@ runs:
         repository: syntasso/enterprise-kratix
         ssh-key: ${{ secrets.ENTERPRISE_KRATIX_DEPLOY_KEY_READ_PUSH }}
         ref: ${{ inputs.ske_sha }}
+        path: enterprise-kratix
         submodules: recursive
 
     - name: Checkout out kratix into enterprise kratix
@@ -35,10 +28,10 @@ runs:
       with:
         repository: syntasso/kratix
         ref: ${{ inputs.sha }}
-        path: read-only-kratix
+        path: enterprise-kratix/read-only-kratix
 
     - name: Start tmate ssh debugging session
-      if: "${{ inputs.enable_tmate == 'true' && github.event_name == 'workflow_dispatch' && github.event.inputs.ssh_session }}"
+      if: "${{ github.event_name == 'workflow_dispatch' && github.event.inputs.ssh_session }}"
       uses: mxschmitt/action-tmate@v3
       with:
         limit-access-to-actor: true
@@ -57,7 +50,6 @@ runs:
         version: v0.29.0
 
     - name: Setup Flux CLI
-      if: "${{ inputs.enable_flux == 'true' }}"
       uses: fluxcd/flux2/action@main
       with:
         version: '2.4.0' 
