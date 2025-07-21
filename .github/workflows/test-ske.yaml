@@ -36,9 +36,14 @@ jobs:
       - name: Setup Common Environment
         uses: ./.github/actions/setup-common
         with:
-          ske_sha: ${{ github.event.inputs.ske_sha }}
-          sha: ${{ github.event.inputs.sha }}
-          enterprise_kratix_deploy_key: ${{ secrets.ENTERPRISE_KRATIX_DEPLOY_KEY_READ_PUSH }}
+          repository: syntasso/enterprise-kratix
+          ref: ${{ github.event.inputs.ske_sha }}
+          path: enterprise-kratix
+          ssh_key: ${{ secrets.ENTERPRISE_KRATIX_DEPLOY_KEY_READ_PUSH }}
+          submodules: 'true'
+          submodule_repository: syntasso/kratix
+          submodule_ref: ${{ github.event.inputs.sha }}
+          submodule_path: enterprise-kratix/read-only-kratix
       - name: Quick start tests
         env:
           GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
@@ -55,9 +60,14 @@ jobs:
       - name: Setup Common Environment
         uses: ./.github/actions/setup-common
         with:
-          ske_sha: ${{ github.event.inputs.ske_sha }}
-          sha: ${{ github.event.inputs.sha }}
-          enterprise_kratix_deploy_key: ${{ secrets.ENTERPRISE_KRATIX_DEPLOY_KEY_READ_PUSH }}
+          repository: syntasso/enterprise-kratix
+          ref: ${{ github.event.inputs.ske_sha }}
+          path: enterprise-kratix
+          ssh_key: ${{ secrets.ENTERPRISE_KRATIX_DEPLOY_KEY_READ_PUSH }}
+          submodules: 'true'
+          submodule_repository: syntasso/kratix
+          submodule_ref: ${{ github.event.inputs.sha }}
+          submodule_path: enterprise-kratix/read-only-kratix
       - name: Install vCluster CLI
         uses: loft-sh/setup-vcluster@main
       - name: Upgrade tests
@@ -76,9 +86,14 @@ jobs:
       - name: Setup Common Environment
         uses: ./.github/actions/setup-common
         with:
-          ske_sha: ${{ github.event.inputs.ske_sha }}
-          sha: ${{ github.event.inputs.sha }}
-          enterprise_kratix_deploy_key: ${{ secrets.ENTERPRISE_KRATIX_DEPLOY_KEY_READ_PUSH }}
+          repository: syntasso/enterprise-kratix
+          ref: ${{ github.event.inputs.ske_sha }}
+          path: enterprise-kratix
+          ssh_key: ${{ secrets.ENTERPRISE_KRATIX_DEPLOY_KEY_READ_PUSH }}
+          submodules: 'true'
+          submodule_repository: syntasso/kratix
+          submodule_ref: ${{ github.event.inputs.sha }}
+          submodule_path: enterprise-kratix/read-only-kratix
       - name: Setup Backstage Environment
         uses: ./.github/actions/setup-backstage
         with:
@@ -105,9 +120,14 @@ jobs:
       - name: Setup Common Environment
         uses: ./.github/actions/setup-common
         with:
-          ske_sha: ${{ github.event.inputs.ske_sha }}
-          sha: ${{ github.event.inputs.sha }}
-          enterprise_kratix_deploy_key: ${{ secrets.ENTERPRISE_KRATIX_DEPLOY_KEY_READ_PUSH }}
+          repository: syntasso/enterprise-kratix
+          ref: ${{ github.event.inputs.ske_sha }}
+          path: enterprise-kratix
+          ssh_key: ${{ secrets.ENTERPRISE_KRATIX_DEPLOY_KEY_READ_PUSH }}
+          submodules: 'true'
+          submodule_repository: syntasso/kratix
+          submodule_ref: ${{ github.event.inputs.sha }}
+          submodule_path: enterprise-kratix/read-only-kratix
       - name: Run make test-e2e-ci
         run: |
           cd enterprise-kratix/ske-operator
@@ -124,9 +144,14 @@ jobs:
       - name: Setup Common Environment
         uses: ./.github/actions/setup-common
         with:
-          ske_sha: ${{ github.event.inputs.ske_sha }}
-          sha: ${{ github.event.inputs.sha }}
-          enterprise_kratix_deploy_key: ${{ secrets.ENTERPRISE_KRATIX_DEPLOY_KEY_READ_PUSH }}
+          repository: syntasso/enterprise-kratix
+          ref: ${{ github.event.inputs.ske_sha }}
+          path: enterprise-kratix
+          ssh_key: ${{ secrets.ENTERPRISE_KRATIX_DEPLOY_KEY_READ_PUSH }}
+          submodules: 'true'
+          submodule_repository: syntasso/kratix
+          submodule_ref: ${{ github.event.inputs.sha }}
+          submodule_path: enterprise-kratix/read-only-kratix
       - name: Run make test-e2e-ci
         run: |
           cd enterprise-kratix/ske-cli
