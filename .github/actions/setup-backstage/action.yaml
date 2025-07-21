@@ -1,6 +1,11 @@
 name: 'Setup Backstage Environment'
 description: 'Setup backstage environment including repository checkout and plugin installation'
 
+inputs:
+  backstage_deploy_key:
+    description: 'SSH key for backstage repository'
+    required: true
+
 runs:
   using: 'composite'
   steps:
@@ -8,7 +13,7 @@ runs:
       uses: actions/checkout@v4
       with:
         repository: syntasso/backstage
-        ssh-key: ${{ secrets.BACKSTAGE_REPO_DEPLOY_KEY }}
+        ssh-key: ${{ inputs.backstage_deploy_key }}
         path: backstage-plugins
 
     - name: Install Backstage plugins

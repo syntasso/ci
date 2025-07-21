@@ -9,6 +9,9 @@ inputs:
     description: 'Commit sha of Kratix'
     required: false
     default: ''
+  enterprise_kratix_deploy_key:
+    description: 'SSH key for enterprise-kratix repository'
+    required: true
 
 runs:
   using: 'composite'
@@ -17,7 +20,7 @@ runs:
       uses: actions/checkout@v4
       with:
         repository: syntasso/enterprise-kratix
-        ssh-key: ${{ secrets.ENTERPRISE_KRATIX_DEPLOY_KEY_READ_PUSH }}
+        ssh-key: ${{ inputs.enterprise_kratix_deploy_key }}
         ref: ${{ inputs.ske_sha }}
         path: enterprise-kratix
         submodules: recursive

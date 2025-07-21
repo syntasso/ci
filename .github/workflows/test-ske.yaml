@@ -38,6 +38,7 @@ jobs:
         with:
           ske_sha: ${{ github.event.inputs.ske_sha }}
           sha: ${{ github.event.inputs.sha }}
+          enterprise_kratix_deploy_key: ${{ secrets.ENTERPRISE_KRATIX_DEPLOY_KEY_READ_PUSH }}
       - name: Quick start tests
         env:
           GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
@@ -56,6 +57,7 @@ jobs:
         with:
           ske_sha: ${{ github.event.inputs.ske_sha }}
           sha: ${{ github.event.inputs.sha }}
+          enterprise_kratix_deploy_key: ${{ secrets.ENTERPRISE_KRATIX_DEPLOY_KEY_READ_PUSH }}
       - name: Install vCluster CLI
         uses: loft-sh/setup-vcluster@main
       - name: Upgrade tests
@@ -76,8 +78,11 @@ jobs:
         with:
           ske_sha: ${{ github.event.inputs.ske_sha }}
           sha: ${{ github.event.inputs.sha }}
+          enterprise_kratix_deploy_key: ${{ secrets.ENTERPRISE_KRATIX_DEPLOY_KEY_READ_PUSH }}
       - name: Setup Backstage Environment
         uses: ./.github/actions/setup-backstage
+        with:
+          backstage_deploy_key: ${{ secrets.BACKSTAGE_REPO_DEPLOY_KEY }}
       - name: Backstage tests
         env:
           GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
@@ -102,6 +107,7 @@ jobs:
         with:
           ske_sha: ${{ github.event.inputs.ske_sha }}
           sha: ${{ github.event.inputs.sha }}
+          enterprise_kratix_deploy_key: ${{ secrets.ENTERPRISE_KRATIX_DEPLOY_KEY_READ_PUSH }}
       - name: Run make test-e2e-ci
         run: |
           cd enterprise-kratix/ske-operator
@@ -120,6 +126,7 @@ jobs:
         with:
           ske_sha: ${{ github.event.inputs.ske_sha }}
           sha: ${{ github.event.inputs.sha }}
+          enterprise_kratix_deploy_key: ${{ secrets.ENTERPRISE_KRATIX_DEPLOY_KEY_READ_PUSH }}
       - name: Run make test-e2e-ci
         run: |
           cd enterprise-kratix/ske-cli
