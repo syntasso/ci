@@ -1,0 +1,63 @@
+name: 'Setup Common Environment'
+description: 'Setup common environment for SKE tests including Go, Kind, and repository checkouts'
+
+inputs:
+  ske_sha:
+    description: 'Commit sha of enterprise-kratix'
+    required: true
+  sha:
+    description: 'Commit sha of Kratix'
+    required: false
+    default: ''
+  enable_tmate:
+    description: 'Enable tmate debugging session'
+    required: false
+    default: 'false'
+  enable_flux:
+    description: 'Setup Flux CLI'
+    required: false
+    default: 'false'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Check out enterprise kratix
+      uses: actions/checkout@v4
+      with:
+        repository: syntasso/enterprise-kratix
+        ssh-key: ${{ secrets.ENTERPRISE_KRATIX_DEPLOY_KEY_READ_PUSH }}
+        ref: ${{ inputs.ske_sha }}
+        submodules: recursive
+
+    - name: Checkout out kratix into enterprise kratix
+      if: "${{ inputs.sha != '' }}"
+      uses: actions/checkout@v4
+      with:
+        repository: syntasso/kratix
+        ref: ${{ inputs.sha }}
+        path: read-only-kratix
+
+    - name: Start tmate ssh debugging session
+      if: "${{ inputs.enable_tmate == 'true' && github.event_name == 'workflow_dispatch' && github.event.inputs.ssh_session }}"
+      uses: mxschmitt/action-tmate@v3
+      with:
+        limit-access-to-actor: true
+        detached: true
+
+    - name: Install Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: 1.23
+        check-latest: true
+
+    - name: Install Kind
+      uses: helm/kind-action@v1
+      with:
+        install_only: true
+        version: v0.29.0
+
+    - name: Setup Flux CLI
+      if: "${{ inputs.enable_flux == 'true' }}"
+      uses: fluxcd/flux2/action@main
+      with:
+        version: '2.4.0' 

@@ -1,0 +1,22 @@
+name: 'Setup Backstage Environment'
+description: 'Setup backstage environment including repository checkout and plugin installation'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Checkout out backstage
+      uses: actions/checkout@v4
+      with:
+        repository: syntasso/backstage
+        ssh-key: ${{ secrets.BACKSTAGE_REPO_DEPLOY_KEY }}
+        path: backstage-plugins
+
+    - name: Install Backstage plugins
+      shell: bash
+      run: |
+        pushd backstage-plugins/plugins/ske-backend
+          yarn install
+        popd
+        pushd backstage-plugins/plugins/ske-frontend
+          yarn install
+        popd 

@@ -31,36 +31,12 @@ jobs:
   ske-quick-start-test:
     runs-on: ubuntu-latest
     steps:
-      - name: Check out enterprise kratix
-        uses: actions/checkout@v4
+      - name: Setup Common Environment
+        uses: ./.github/actions/setup-common
         with:
-          repository: syntasso/enterprise-kratix
-          ssh-key: ${{ secrets.ENTERPRISE_KRATIX_DEPLOY_KEY_READ_PUSH }}
-          ref: ${{ github.event.inputs.ske_sha }}
-          submodules: recursive
-      - name: Checkout out kratix into enterprise kratix
-        if: "${{ github.event.inputs.sha != '' }}"
-        uses: actions/checkout@v4
-        with:
-          repository: syntasso/kratix
-          ref: ${{ github.event.inputs.sha }}
-          path: read-only-kratix
-      - name: Start tmate ssh debugging session
-        uses: mxschmitt/action-tmate@v3
-        if: ${{ github.event_name == 'workflow_dispatch' && inputs.ssh_session }}
-        with:
-          limit-access-to-actor: true
-          detached: true
-      - name: Install Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: 1.23
-          check-latest: true
-      - name: Install Kind
-        uses: helm/kind-action@v1
-        with:
-          install_only: true
-          version: v0.29.0
+          ske_sha: ${{ github.event.inputs.ske_sha }}
+          sha: ${{ github.event.inputs.sha }}
+          enable_tmate: 'true'
       - name: Quick start tests
         env:
           GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
@@ -72,34 +48,12 @@ jobs:
   ske-upgrade-and-oss-test:
     runs-on: ubuntu-latest
     steps:
-      - name: Check out enterprise kratix
-        uses: actions/checkout@v4
+      - name: Setup Common Environment
+        uses: ./.github/actions/setup-common
         with:
-          repository: syntasso/enterprise-kratix
-          ssh-key: ${{ secrets.ENTERPRISE_KRATIX_DEPLOY_KEY_READ_PUSH }}
-          ref: ${{ github.event.inputs.ske_sha }}
-          submodules: recursive
-      - name: Checkout out kratix into enterprise kratix
-        if: "${{ github.event.inputs.sha != '' }}"
-        uses: actions/checkout@v4
-        with:
-          repository: syntasso/kratix
-          ref: ${{ github.event.inputs.sha }}
-          path: read-only-kratix
-      - name: Install Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: 1.23
-          check-latest: true
-      - name: Install Kind
-        uses: helm/kind-action@v1
-        with:
-          install_only: true
-          version: v0.29.0
-      - name: Setup Flux CLI
-        uses: fluxcd/flux2/action@main
-        with:
-          version: '2.4.0'
+          ske_sha: ${{ github.event.inputs.ske_sha }}
+          sha: ${{ github.event.inputs.sha }}
+          enable_flux: 'true'
       - name: Install vCluster CLI
         uses: loft-sh/setup-vcluster@main
       - name: Upgrade tests
@@ -111,48 +65,14 @@ jobs:
   ske-backstage-test:
     runs-on: ubuntu-latest
     steps:
-      - name: Check out enterprise kratix
-        uses: actions/checkout@v4
+      - name: Setup Common Environment
+        uses: ./.github/actions/setup-common
         with:
-          repository: syntasso/enterprise-kratix
-          ref: ${{ github.event.inputs.ske_sha }}
-          ssh-key: ${{ secrets.ENTERPRISE_KRATIX_DEPLOY_KEY_READ_PUSH }}
-          submodules: recursive
-      - name: Checkout out kratix into enterprise kratix
-        if: "${{ github.event.inputs.sha != '' }}"
-        uses: actions/checkout@v4
-        with:
-          repository: syntasso/kratix
-          ref: ${{ github.event.inputs.sha }}
-          path: read-only-kratix
-      - name: Checkout out backstage
-        uses: actions/checkout@v4
-        with:
-          repository: syntasso/backstage
-          ssh-key: ${{ secrets.BACKSTAGE_REPO_DEPLOY_KEY }}
-          path: backstage-plugins
-      - name: Install Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: 1.23
-          check-latest: true
-      - name: Install Kind
-        uses: helm/kind-action@v1
-        with:
-          install_only: true
-          version: v0.29.0
-      - name: Setup Flux CLI
-        uses: fluxcd/flux2/action@main
-        with:
-          version: '2.4.0'
-      - name: Install Backstage plugins
-        run: |
-          pushd backstage-plugins/plugins/ske-backend
-            yarn install
-          popd
-          pushd backstage-plugins/plugins/ske-frontend
-            yarn install
-          popd
+          ske_sha: ${{ github.event.inputs.ske_sha }}
+          sha: ${{ github.event.inputs.sha }}
+          enable_flux: 'true'
+      - name: Setup Backstage Environment
+        uses: ./.github/actions/setup-backstage
       - name: Backstage tests
         env:
           GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
@@ -169,40 +89,13 @@ jobs:
   ske-operator:
     runs-on: ubuntu-latest
     steps:
-      - name: Check out enterprise kratix
-        uses: actions/checkout@v4
+      - name: Setup Common Environment
+        uses: ./.github/actions/setup-common
         with:
-          repository: syntasso/enterprise-kratix
-          ssh-key: ${{ secrets.ENTERPRISE_KRATIX_DEPLOY_KEY_READ_PUSH }}
-          ref: ${{ github.event.inputs.ske_sha }}
-          submodules: recursive
-      - name: Checkout out kratix into enterprise kratix
-        if: "${{ github.event.inputs.sha != '' }}"
-        uses: actions/checkout@v4
-        with:
-          repository: syntasso/kratix
-          ref: ${{ github.event.inputs.sha }}
-          path: read-only-kratix
-      - name: Install Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: 1.23
-          check-latest: true
-      - name: Install Kind
-        uses: helm/kind-action@v1
-        with:
-          install_only: true
-          version: v0.29.0
-      - name: Setup Flux CLI
-        uses: fluxcd/flux2/action@main
-        with:
-          version: '2.4.0'
-      - name: Start tmate ssh debugging session
-        uses: mxschmitt/action-tmate@v3
-        if: ${{ github.event_name == 'workflow_dispatch' && inputs.ssh_session }}
-        with:
-          limit-access-to-actor: true
-          detached: true
+          ske_sha: ${{ github.event.inputs.ske_sha }}
+          sha: ${{ github.event.inputs.sha }}
+          enable_tmate: 'true'
+          enable_flux: 'true'
       - name: Run make test-e2e-ci
         run: |
           make test-e2e-ci
@@ -214,40 +107,13 @@ jobs:
   ske-cli:
     runs-on: ubuntu-latest
     steps:
-      - name: Check out enterprise kratix
-        uses: actions/checkout@v4
+      - name: Setup Common Environment
+        uses: ./.github/actions/setup-common
         with:
-          repository: syntasso/enterprise-kratix
-          ssh-key: ${{ secrets.ENTERPRISE_KRATIX_DEPLOY_KEY_READ_PUSH }}
-          ref: ${{ github.event.inputs.ske_sha }}
-          submodules: recursive
-      - name: Checkout out kratix into enterprise kratix
-        if: "${{ github.event.inputs.sha != '' }}"
-        uses: actions/checkout@v4
-        with:
-          repository: syntasso/kratix
-          ref: ${{ github.event.inputs.sha }}
-          path: read-only-kratix
-      - name: Install Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: 1.23
-          check-latest: true
-      - name: Install Kind
-        uses: helm/kind-action@v1
-        with:
-          install_only: true
-          version: v0.29.0
-      - name: Setup Flux CLI
-        uses: fluxcd/flux2/action@main
-        with:
-          version: '2.4.0'
-      - name: Start tmate ssh debugging session
-        uses: mxschmitt/action-tmate@v3
-        if: ${{ github.event_name == 'workflow_dispatch' && inputs.ssh_session }}
-        with:
-          limit-access-to-actor: true
-          detached: true
+          ske_sha: ${{ github.event.inputs.ske_sha }}
+          sha: ${{ github.event.inputs.sha }}
+          enable_tmate: 'true'
+          enable_flux: 'true'
       - name: Run make test-e2e-ci
         run: |
           make test-e2e-ci
