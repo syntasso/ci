@@ -36,15 +36,19 @@ jobs:
         with:
           repository: syntasso/kratix
           ref: ${{ github.event.inputs.sha }}
+          path: kratix
       - name: Unit Tests
         run: |
+          cd kratix
           make test
       - name: Lint
         run: |
+          cd kratix
           curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s v1.63.4
           ./bin/golangci-lint run --config=.golangci-required.yml
       - name: Go vulnerability check
         run: |
+          cd kratix
           go install golang.org/x/vuln/cmd/govulncheck@latest
           govulncheck ./...
 
@@ -59,8 +63,10 @@ jobs:
         with:
           repository: syntasso/kratix
           ref: ${{ github.event.inputs.sha }}
+          path: kratix
       - name: System Tests
         run: |
+          cd kratix
           DOCKER_BUILDKIT=1 ACK_GINKGO_RC=true cd hack/kratix-quick-start-installer && make system-test
 
   system-test:
@@ -74,8 +80,10 @@ jobs:
         with:
           repository: syntasso/kratix
           ref: ${{ github.event.inputs.sha }}
+          path: kratix
       - name: System Tests
         run: |
+          cd kratix
           DOCKER_BUILDKIT=1 ACK_GINKGO_RC=true make system-test
 
   core-test:
@@ -89,8 +97,10 @@ jobs:
         with:
           repository: syntasso/kratix
           ref: ${{ github.event.inputs.sha }}
+          path: kratix
       - name: System Tests
         run: |
+          cd kratix
           DOCKER_BUILDKIT=1 ACK_GINKGO_RC=true make core-test
 
   integration-test-git:
@@ -104,15 +114,17 @@ jobs:
         with:
           repository: syntasso/kratix
           ref: ${{ github.event.inputs.sha }}
+          path: kratix
       - name: Checkout out kratix helm charts
         uses: actions/checkout@v4
         with:
           repository: syntasso/helm-charts
-          path: charts
+          path: kratix/charts
       - name: Install Helm
         uses: azure/setup-helm@v3
       - name: e2e-demo-test-helm-git
         run: |
+          cd kratix
           STATE_STORE="git" ./scripts/helm-e2e-test.sh
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -128,15 +140,17 @@ jobs:
         with:
           repository: syntasso/kratix
           ref: ${{ github.event.inputs.sha }}
+          path: kratix
       - name: Checkout out kratix helm charts
         uses: actions/checkout@v4
         with:
           repository: syntasso/helm-charts
-          path: charts
+          path: kratix/charts
       - name: Install Helm
         uses: azure/setup-helm@v3
       - name: e2e-demo-test-helm-bucket
         run: |
+          cd kratix
           STATE_STORE="bucket" ./scripts/helm-e2e-test.sh
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
