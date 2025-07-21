@@ -104,6 +104,7 @@ jobs:
         uses: helm/kind-action@v1
         with:
           install_only: true
+          version: v0.29.0
       - name: Setup Flux CLI
         uses: fluxcd/flux2/action@main
         with:
@@ -136,6 +137,7 @@ jobs:
         uses: helm/kind-action@v1
         with:
           install_only: true
+          version: v0.29.0
       - name: Setup Flux CLI
         uses: fluxcd/flux2/action@main
         with:
@@ -173,6 +175,7 @@ jobs:
         uses: helm/kind-action@v1
         with:
           install_only: true
+          version: v0.29.0
       - name: Install Helm
         uses: azure/setup-helm@v3
       - name: e2e-demo-test-helm-git
@@ -210,6 +213,7 @@ jobs:
         uses: helm/kind-action@v1
         with:
           install_only: true
+          version: v0.29.0
       - name: Install Helm
         uses: azure/setup-helm@v3
       - name: e2e-demo-test-helm-bucket
