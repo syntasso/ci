@@ -31,128 +31,76 @@ jobs:
   ske-quick-start-test:
     runs-on: ubuntu-latest
     steps:
-      - name: Check out enterprise kratix
+      - name: Checkout ci repository
         uses: actions/checkout@v4
+      - name: Setup Common Environment
+        uses: ./.github/actions/setup-common
         with:
           repository: syntasso/enterprise-kratix
-          ssh-key: ${{ secrets.ENTERPRISE_KRATIX_DEPLOY_KEY_READ_PUSH }}
           ref: ${{ github.event.inputs.ske_sha }}
-          submodules: recursive
-      - name: Checkout out kratix into enterprise kratix
-        if: "${{ github.event.inputs.sha != '' }}"
-        uses: actions/checkout@v4
-        with:
-          repository: syntasso/kratix
-          ref: ${{ github.event.inputs.sha }}
-          path: read-only-kratix
-      - name: Start tmate ssh debugging session
-        uses: mxschmitt/action-tmate@v3
-        if: ${{ github.event_name == 'workflow_dispatch' && inputs.ssh_session }}
-        with:
-          limit-access-to-actor: true
-          detached: true
-      - name: Install Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: 1.23
-          check-latest: true
-      - name: Install Kind
-        uses: helm/kind-action@v1
-        with:
-          install_only: true
-          version: v0.29.0
+          path: enterprise-kratix
+          ssh_key: ${{ secrets.ENTERPRISE_KRATIX_DEPLOY_KEY_READ_PUSH }}
+          submodules: 'true'
+          submodule_repository: syntasso/kratix
+          submodule_ref: ${{ github.event.inputs.sha }}
+          submodule_path: enterprise-kratix/read-only-kratix
+          ssh_session: ${{ github.event.inputs.ssh_session }}
       - name: Quick start tests
         env:
           GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
           GH_TOKEN: ${{ secrets.GH_RELEASE_CREATOR_TOKEN }}
         run: |
-          cd ske-quick-start-installer/
+          cd enterprise-kratix/ske-quick-start-installer/
           make system-test
 
   ske-upgrade-and-oss-test:
     runs-on: ubuntu-latest
     steps:
-      - name: Check out enterprise kratix
+      - name: Checkout ci repository
         uses: actions/checkout@v4
+      - name: Setup Common Environment
+        uses: ./.github/actions/setup-common
         with:
           repository: syntasso/enterprise-kratix
-          ssh-key: ${{ secrets.ENTERPRISE_KRATIX_DEPLOY_KEY_READ_PUSH }}
           ref: ${{ github.event.inputs.ske_sha }}
-          submodules: recursive
-      - name: Checkout out kratix into enterprise kratix
-        if: "${{ github.event.inputs.sha != '' }}"
-        uses: actions/checkout@v4
-        with:
-          repository: syntasso/kratix
-          ref: ${{ github.event.inputs.sha }}
-          path: read-only-kratix
-      - name: Install Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: 1.23
-          check-latest: true
-      - name: Install Kind
-        uses: helm/kind-action@v1
-        with:
-          install_only: true
-          version: v0.29.0
-      - name: Setup Flux CLI
-        uses: fluxcd/flux2/action@main
-        with:
-          version: '2.4.0'
+          path: enterprise-kratix
+          ssh_key: ${{ secrets.ENTERPRISE_KRATIX_DEPLOY_KEY_READ_PUSH }}
+          submodules: 'true'
+          submodule_repository: syntasso/kratix
+          submodule_ref: ${{ github.event.inputs.sha }}
+          submodule_path: enterprise-kratix/read-only-kratix
+          ssh_session: ${{ github.event.inputs.ssh_session }}
       - name: Install vCluster CLI
         uses: loft-sh/setup-vcluster@main
       - name: Upgrade tests
         env:
           GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
           GH_TOKEN: ${{ secrets.GH_RELEASE_CREATOR_TOKEN }}
-        run: ./scripts/run-ske-test-in-kind.sh
+        run: |
+          cd enterprise-kratix
+          ./scripts/run-ske-test-in-kind.sh
 
   ske-backstage-test:
     runs-on: ubuntu-latest
     steps:
-      - name: Check out enterprise kratix
+      - name: Checkout ci repository
         uses: actions/checkout@v4
+      - name: Setup Common Environment
+        uses: ./.github/actions/setup-common
         with:
           repository: syntasso/enterprise-kratix
           ref: ${{ github.event.inputs.ske_sha }}
-          ssh-key: ${{ secrets.ENTERPRISE_KRATIX_DEPLOY_KEY_READ_PUSH }}
-          submodules: recursive
-      - name: Checkout out kratix into enterprise kratix
-        if: "${{ github.event.inputs.sha != '' }}"
-        uses: actions/checkout@v4
+          path: enterprise-kratix
+          ssh_key: ${{ secrets.ENTERPRISE_KRATIX_DEPLOY_KEY_READ_PUSH }}
+          submodules: 'true'
+          submodule_repository: syntasso/kratix
+          submodule_ref: ${{ github.event.inputs.sha }}
+          submodule_path: enterprise-kratix/read-only-kratix
+          ssh_session: ${{ github.event.inputs.ssh_session }}
+      - name: Setup Backstage Environment
+        uses: ./.github/actions/setup-backstage
         with:
-          repository: syntasso/kratix
-          ref: ${{ github.event.inputs.sha }}
-          path: read-only-kratix
-      - name: Checkout out backstage
-        uses: actions/checkout@v4
-        with:
-          repository: syntasso/backstage
-          ssh-key: ${{ secrets.BACKSTAGE_REPO_DEPLOY_KEY }}
-          path: backstage-plugins
-      - name: Install Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: 1.23
-          check-latest: true
-      - name: Install Kind
-        uses: helm/kind-action@v1
-        with:
-          install_only: true
-          version: v0.29.0
-      - name: Setup Flux CLI
-        uses: fluxcd/flux2/action@main
-        with:
-          version: '2.4.0'
-      - name: Install Backstage plugins
-        run: |
-          pushd backstage-plugins/plugins/ske-backend
-            yarn install
-          popd
-          pushd backstage-plugins/plugins/ske-frontend
-            yarn install
-          popd
+          backstage_deploy_key: ${{ secrets.BACKSTAGE_REPO_DEPLOY_KEY }}
       - name: Backstage tests
         env:
           GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
@@ -164,49 +112,30 @@ jobs:
           sudo rm -rf /opt/ghc
           sudo rm -rf "/usr/local/share/boost"
           sudo rm -rf /usr/local/lib/android
+          cd enterprise-kratix
           ./scripts/test-ske-with-backstage-in-kind.sh
 
   ske-operator:
     runs-on: ubuntu-latest
     steps:
-      - name: Check out enterprise kratix
+      - name: Checkout ci repository
         uses: actions/checkout@v4
+      - name: Setup Common Environment
+        uses: ./.github/actions/setup-common
         with:
           repository: syntasso/enterprise-kratix
-          ssh-key: ${{ secrets.ENTERPRISE_KRATIX_DEPLOY_KEY_READ_PUSH }}
           ref: ${{ github.event.inputs.ske_sha }}
-          submodules: recursive
-      - name: Checkout out kratix into enterprise kratix
-        if: "${{ github.event.inputs.sha != '' }}"
-        uses: actions/checkout@v4
-        with:
-          repository: syntasso/kratix
-          ref: ${{ github.event.inputs.sha }}
-          path: read-only-kratix
-      - name: Install Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: 1.23
-          check-latest: true
-      - name: Install Kind
-        uses: helm/kind-action@v1
-        with:
-          install_only: true
-          version: v0.29.0
-      - name: Setup Flux CLI
-        uses: fluxcd/flux2/action@main
-        with:
-          version: '2.4.0'
-      - name: Start tmate ssh debugging session
-        uses: mxschmitt/action-tmate@v3
-        if: ${{ github.event_name == 'workflow_dispatch' && inputs.ssh_session }}
-        with:
-          limit-access-to-actor: true
-          detached: true
+          path: enterprise-kratix
+          ssh_key: ${{ secrets.ENTERPRISE_KRATIX_DEPLOY_KEY_READ_PUSH }}
+          submodules: 'true'
+          submodule_repository: syntasso/kratix
+          submodule_ref: ${{ github.event.inputs.sha }}
+          submodule_path: enterprise-kratix/read-only-kratix
+          ssh_session: ${{ github.event.inputs.ssh_session }}
       - name: Run make test-e2e-ci
         run: |
+          cd enterprise-kratix/ske-operator
           make test-e2e-ci
-        working-directory: ske-operator
         env:
           GITHUB_TOKEN: ${{ secrets.GHCR_TOKEN }}
           SKE_LICENSE_TOKEN: ${{ secrets.SKE_LICENSE_TOKEN }}
@@ -214,44 +143,24 @@ jobs:
   ske-cli:
     runs-on: ubuntu-latest
     steps:
-      - name: Check out enterprise kratix
+      - name: Checkout ci repository
         uses: actions/checkout@v4
+      - name: Setup Common Environment
+        uses: ./.github/actions/setup-common
         with:
           repository: syntasso/enterprise-kratix
-          ssh-key: ${{ secrets.ENTERPRISE_KRATIX_DEPLOY_KEY_READ_PUSH }}
           ref: ${{ github.event.inputs.ske_sha }}
-          submodules: recursive
-      - name: Checkout out kratix into enterprise kratix
-        if: "${{ github.event.inputs.sha != '' }}"
-        uses: actions/checkout@v4
-        with:
-          repository: syntasso/kratix
-          ref: ${{ github.event.inputs.sha }}
-          path: read-only-kratix
-      - name: Install Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: 1.23
-          check-latest: true
-      - name: Install Kind
-        uses: helm/kind-action@v1
-        with:
-          install_only: true
-          version: v0.29.0
-      - name: Setup Flux CLI
-        uses: fluxcd/flux2/action@main
-        with:
-          version: '2.4.0'
-      - name: Start tmate ssh debugging session
-        uses: mxschmitt/action-tmate@v3
-        if: ${{ github.event_name == 'workflow_dispatch' && inputs.ssh_session }}
-        with:
-          limit-access-to-actor: true
-          detached: true
+          path: enterprise-kratix
+          ssh_key: ${{ secrets.ENTERPRISE_KRATIX_DEPLOY_KEY_READ_PUSH }}
+          submodules: 'true'
+          submodule_repository: syntasso/kratix
+          submodule_ref: ${{ github.event.inputs.sha }}
+          submodule_path: enterprise-kratix/read-only-kratix
+          ssh_session: ${{ github.event.inputs.ssh_session }}
       - name: Run make test-e2e-ci
         run: |
+          cd enterprise-kratix/ske-cli
           make test-e2e-ci
-        working-directory: ske-cli
         env:
           SKE_LICENSE_TOKEN: ${{ secrets.SKE_LICENSE_TOKEN }}
           KRATIX_DEVELOPER: true

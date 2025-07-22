@@ -1,0 +1,27 @@
+name: 'Setup Backstage Environment'
+description: 'Setup backstage environment including repository checkout and plugin installation'
+
+inputs:
+  backstage_deploy_key:
+    description: 'SSH key for backstage repository'
+    required: true
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Checkout out backstage
+      uses: actions/checkout@v4
+      with:
+        repository: syntasso/backstage
+        ssh-key: ${{ inputs.backstage_deploy_key }}
+        path: enterprise-kratix/backstage-plugins
+
+    - name: Install Backstage plugins
+      shell: bash
+      run: |
+        pushd enterprise-kratix/backstage-plugins/plugins/ske-backend
+          yarn install
+        popd
+        pushd enterprise-kratix/backstage-plugins/plugins/ske-frontend
+          yarn install
+        popd 

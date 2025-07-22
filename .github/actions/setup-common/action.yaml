@@ -1,0 +1,85 @@
+name: 'Setup Common Environment'
+description: 'Setup environment with repository checkout, tools installation, and tmate debugging'
+
+inputs:
+  repository:
+    description: 'Repository to checkout (e.g., syntasso/kratix)'
+    required: false
+    default: ''
+  ref:
+    description: 'Reference to checkout (commit sha, branch, etc.)'
+    required: false
+    default: ''
+  path:
+    description: 'Path to checkout repository into'
+    required: false
+    default: ''
+  ssh_key:
+    description: 'SSH key for private repository access'
+    required: false
+    default: ''
+  submodules:
+    description: 'Whether to checkout submodules'
+    required: false
+    default: 'false'
+  submodule_repository:
+    description: 'Submodule repository to checkout (e.g., syntasso/kratix)'
+    required: false
+    default: ''
+  submodule_ref:
+    description: 'Reference to checkout for submodule (commit sha, branch, etc.)'
+    required: false
+    default: ''
+  submodule_path:
+    description: 'Path to checkout submodule repository into'
+    required: false
+    default: ''
+  ssh_session:
+    description: 'Whether to enable tmate ssh debugging session (true/false)'
+    required: false
+    default: 'false'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Checkout parameterized repository
+      if: "${{ inputs.repository != '' }}"
+      uses: actions/checkout@v4
+      with:
+        repository: ${{ inputs.repository }}
+        ref: ${{ inputs.ref }}
+        path: ${{ inputs.path }}
+        ssh-key: ${{ inputs.ssh_key }}
+        submodules: ${{ inputs.submodules }}
+
+    - name: Checkout submodule repository
+      if: "${{ inputs.submodule_repository != '' && inputs.submodule_ref != '' }}"
+      uses: actions/checkout@v4
+      with:
+        repository: ${{ inputs.submodule_repository }}
+        ref: ${{ inputs.submodule_ref }}
+        path: ${{ inputs.submodule_path }}
+
+    - name: Start tmate ssh debugging session
+      if: "${{ inputs.ssh_session == 'true' }}"
+      uses: mxschmitt/action-tmate@v3
+      with:
+        limit-access-to-actor: true
+        detached: true
+
+    - name: Install Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: 1.23
+        check-latest: true
+
+    - name: Install Kind
+      uses: helm/kind-action@v1
+      with:
+        install_only: true
+        version: v0.29.0
+
+    - name: Setup Flux CLI
+      uses: fluxcd/flux2/action@main
+      with:
+        version: '2.4.0' 
