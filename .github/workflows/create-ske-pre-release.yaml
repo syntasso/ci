@@ -119,7 +119,6 @@ jobs:
           version: v3.16.4
       - name: Upgrade LRE
         run: |
-          latest_rc="$(gh release list --json tagName --jq '.[0].tagName')"
           ./scripts/upgrade-lre $latest_rc
         env:
           GH_TOKEN: ${{ secrets.ENTERPRISE_KRATIX_GH_TOKEN }}
