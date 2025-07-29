@@ -132,3 +132,31 @@ jobs:
           kubectl --context ${PLATFORM} label destinations.platform.kratix.io testing-worker-git environment-
           LRE="true" WORKER_CONTEXT=${WORKER_BUCKET} WORKER_NAME=${WORKER_BUCKET} PLATFORM_CONTEXT=${PLATFORM} PLATFORM_NAME=${PLATFORM} DESTINATION_NAME=${WORKER_BUCKET} go run github.com/onsi/ginkgo/v2/ginkgo -v ./test/core/
           kubectl --context ${PLATFORM} label destinations.platform.kratix.io testing-worker-git environment=dev
+
+  ske-downgrade-test:
+    runs-on: ubuntu-latest
+    needs: [create-pre-release]
+    steps:
+      - name: Checkout ci repository
+        uses: actions/checkout@v4
+        with:
+          repository: syntasso/ci
+      - name: Setup Common Environment
+        uses: ./.github/actions/setup-common
+        with:
+          repository: syntasso/enterprise-kratix
+          ref: ${{ github.event.inputs.ske_sha }}
+          path: enterprise-kratix
+          ssh_key: ${{ secrets.ENTERPRISE_KRATIX_DEPLOY_KEY_READ_PUSH }}
+          submodules: 'true'
+          submodule_repository: syntasso/kratix
+          submodule_ref: ${{ github.event.inputs.sha }}
+          submodule_path: enterprise-kratix/read-only-kratix
+          ssh_session: ${{ github.event.inputs.ssh_session }}
+      - name: Run downgrade test
+        run: |
+          cd enterprise-kratix/
+          ./scripts/ske-downgrade-test.sh
+        env:
+          GH_TOKEN: ${{ secrets.ENTERPRISE_KRATIX_GH_TOKEN }}
+          SKE_LICENSE_TOKEN: ${{ secrets.SKE_LICENSE_TOKEN }}
