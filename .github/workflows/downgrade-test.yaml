@@ -27,7 +27,7 @@ jobs:
       - name: Run downgrade test
         run: |
           cd enterprise-kratix/
-          ./scripts/run-ske-downgrade-test.sh
+          ./scripts/ske-downgrade-test.sh
         env:
           GH_TOKEN: ${{ secrets.ENTERPRISE_KRATIX_GH_TOKEN }}
           SKE_LICENSE_TOKEN: ${{ secrets.SKE_LICENSE_TOKEN }}
