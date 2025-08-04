@@ -56,7 +56,7 @@ jobs:
         with:
           script: |
             const sha = '${{ github.event.inputs.sha }}'
-            const message = '${{ github.event.inputs.message }}'
+            const message = '${{ toJson(github.event.inputs.message) }}'
             const author = '${{ github.event.inputs.author }}'
 
             await core.summary
