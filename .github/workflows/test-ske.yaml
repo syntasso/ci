@@ -147,31 +147,3 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GHCR_TOKEN }}
           SKE_LICENSE_TOKEN: ${{ secrets.SKE_LICENSE_TOKEN }}
-
-  ske-cli:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout ci repository
-        uses: actions/checkout@v4
-        with:
-          repository: syntasso/ci
-      - name: Setup Common Environment
-        uses: ./.github/actions/setup-common
-        with:
-          repository: syntasso/enterprise-kratix
-          ref: ${{ github.event.inputs.ske_sha }}
-          path: enterprise-kratix
-          ssh_key: ${{ secrets.ENTERPRISE_KRATIX_DEPLOY_KEY_READ_PUSH }}
-          submodules: 'true'
-          submodule_repository: syntasso/kratix
-          submodule_ref: ${{ github.event.inputs.sha }}
-          submodule_path: enterprise-kratix/read-only-kratix
-          ssh_session: ${{ github.event.inputs.ssh_session }}
-      - name: Run make test-e2e-ci
-        run: |
-          cd enterprise-kratix/ske-cli
-          make test-e2e-ci
-        env:
-          SKE_LICENSE_TOKEN: ${{ secrets.SKE_LICENSE_TOKEN }}
-          KRATIX_DEVELOPER: true
-
