@@ -59,22 +59,27 @@ jobs:
             const message = ${{ toJson(github.event.inputs.message) }}
             const author = ${{ toJson(github.event.inputs.author) }}
 
-            // Truncate commit message if too long
-            const maxLen = 200
-            const shortMessage = message.length > maxLen
-                ? message.slice(0, maxLen) + '…'
-                : message
+            const rows = [ [sha] ] // always include SHA
+            const headers = [ { data: 'Commit SHA', header: true } ]
+
+            // Add author column only if provided
+            if (author && author.trim() !== '') {
+                headers.push({ data: 'Author', header: true })
+                rows[0].push(author)
+            }
+
+            // Add message column only if provided
+            if (message && message.trim() !== '') {
+                const maxLen = 200
+                const shortMessage =
+                message.length > maxLen ? message.slice(0, maxLen) + '…' : message
+                headers.push({ data: 'Message', header: true })
+                rows[0].push(shortMessage)
+            }
 
             await core.summary
                 .addHeading('Run Summary')
-                .addTable([
-                [
-                    { data: 'Commit SHA', header: true },
-                    { data: 'Author', header: true },
-                    { data: 'Message', header: true }
-                ],
-                [sha, author, shortMessage],
-                ])
+                .addTable([headers, rows[0]])
                 .addLink('View Commit on Github', `https://github.com/syntasso/kratix/commit/${sha}`)
                 .write()
 
