@@ -49,7 +49,6 @@ jobs:
           make distribution
           new_tag=$(./scripts/tag-new-rc-version)
           echo "NEW_TAG=$new_tag" >> "$GITHUB_ENV"
-
       - name: Snyk image scan on kratix
         uses: snyk/actions/docker@master
         if: ${{ !fromJSON(github.event.inputs['skip-security-scan'] || 'false') }}
@@ -58,15 +57,6 @@ jobs:
         with:
           image: ghcr.io/syntasso/ske-platform:$NEW_TAG
           args: --severity-threshold=high --username=syntassodev --password=${{ secrets.GHCR_TOKEN }}
-      - name: Snyk image scan on pipeline-adapter
-        uses: snyk/actions/docker@master
-        if: ${{ !fromJSON(github.event.inputs['skip-security-scan'] || 'false') }}
-        env:
-          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-        with:
-          image: ghcr.io/syntasso/ske-platform-pipeline-adapter:$NEW_TAG
-          args: --severity-threshold=high --username=syntassodev --password=${{ secrets.GHCR_TOKEN }}
-
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:

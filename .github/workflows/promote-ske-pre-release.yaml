@@ -5,7 +5,6 @@ on:
 
 env:
   SKE_PLATFORM_IMG: "ghcr.io/syntasso/ske-platform"
-  SKE_PLATFORM_PIPELINE_ADAPTER_IMG: "ghcr.io/syntasso/ske-platform-pipeline-adapter"
   SKE_QUICK_START_INSTALLER_IMG: "ghcr.io/syntasso/ske-quick-start-installer"
 
 jobs:
