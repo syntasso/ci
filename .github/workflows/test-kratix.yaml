@@ -79,12 +79,16 @@ jobs:
     runs-on: ubuntu-latest
     needs: [unit-tests-and-lint]
     strategy:
+      fail-fast: false
       matrix:
         flags:
           - name: default
-            env: {}
+            env: &default_env
+              DOCKER_BUILDKIT: "1"
+              ACK_GINKGO_RC: "true"
           - name: ff-promise-upgrade
             env:
+              <<: *default_env
               UPGRADE_ENABLED: "true"
 
     name: system-test (${{ matrix.flags.name }})
@@ -104,7 +108,7 @@ jobs:
         env: ${{ matrix.flags.env }}
         run: |
           cd kratix
-          DOCKER_BUILDKIT=1 ACK_GINKGO_RC=true make system-test
+          make system-test
 
   core-test:
     runs-on: ubuntu-latest
