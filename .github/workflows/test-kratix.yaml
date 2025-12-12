@@ -82,7 +82,7 @@ jobs:
       matrix:
         flags:
           - name: default
-            env: []
+            env: {}
           - name: ff-promise-upgrade
             env:
               UPGRADE_ENABLED: "true"
