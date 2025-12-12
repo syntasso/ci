@@ -26,7 +26,7 @@ jobs:
           go-version: 1.24
           check-latest: true
       - name: Snyk golang scan on kratix
-        if: ${{ !fromJSON(github.event.inputs['skip-security-scan'] || 'false') }}
+        if: ${{ !inputs.skip-security-scan }}
         uses: snyk/actions/golang@master
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
@@ -51,7 +51,7 @@ jobs:
           echo "NEW_TAG=$new_tag" >> "$GITHUB_ENV"
       - name: Snyk image scan on kratix
         uses: snyk/actions/docker@master
-        if: ${{ !fromJSON(github.event.inputs['skip-security-scan'] || 'false') }}
+        if: ${{ !inputs.skip-security-scan }}
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         with:
