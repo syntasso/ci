@@ -83,12 +83,13 @@ jobs:
       matrix:
         flags:
           - name: default
-            env: &default_env
+            env:
               DOCKER_BUILDKIT: "1"
               ACK_GINKGO_RC: "true"
           - name: ff-promise-upgrade
             env:
-              <<: *default_env
+              DOCKER_BUILDKIT: "1"
+              ACK_GINKGO_RC: "true"
               UPGRADE_ENABLED: "true"
 
     name: system-test (${{ matrix.flags.name }})
