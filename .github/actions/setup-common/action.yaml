@@ -86,9 +86,9 @@ runs:
       uses: actions/cache@v4
       with:
         path: cache-mount
-        key: ${{ runner.os }}-buildkit-${{ github.sha }}
+        key: ${{ runner.os }}-buildkit-${{ github.head_ref || github.ref_name }}-${{ github.sha }}
         restore-keys: |
-          ${{ runner.os }}-buildkit-
+          ${{ runner.os }}-buildkit-${{ github.head_ref || github.ref_name }}-
 
     - name: Restore Docker cache mounts
       uses: reproducible-containers/buildkit-cache-dance@v3
