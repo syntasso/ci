@@ -4,6 +4,9 @@ permissions:
   actions: write
   contents: read
 
+env:
+  VERBOSE: "true"
+
 on:
   workflow_dispatch:
     inputs:
