@@ -85,7 +85,7 @@ runs:
       id: cache
       uses: actions/cache@v4
       with:
-        path: cache-mount
+        path: ${{ github.workspace }}/cache-mount
         key: ${{ runner.os }}-buildkit-${{ github.head_ref || github.ref_name }}-${{ github.sha }}
         restore-keys: |
           ${{ runner.os }}-buildkit-${{ github.head_ref || github.ref_name }}-
@@ -94,12 +94,12 @@ runs:
       uses: reproducible-containers/buildkit-cache-dance@v3
       with:
         builder: ${{ steps.setup-buildx.outputs.name }}
-        cache-dir: cache-mount
+        cache-dir: ${{ github.workspace }}/cache-mount
         dockerfile: ${{ inputs.path }}/Dockerfile
         skip-extraction: ${{ steps.cache.outputs.cache-hit }}
 
     - name: Export BuildKit cache dir
-      run: echo "BUILDKIT_CACHE_DIR=cache-mount" >> $GITHUB_ENV
+      run: echo "BUILDKIT_CACHE_DIR=${GITHUB_WORKSPACE}/cache-mount" >> $GITHUB_ENV
       shell: bash
 
     - name: Install Kind
