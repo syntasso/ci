@@ -95,6 +95,10 @@ runs:
         dockerfile: Dockerfile
         skip-extraction: ${{ steps.cache.outputs.cache-hit }}
 
+    - name: Export BuildKit cache dir
+      run: echo "BUILDKIT_CACHE_DIR=cache-mount" >> $GITHUB_ENV
+      shell: bash
+
     - name: Install Kind
       uses: helm/kind-action@v1
       with:
