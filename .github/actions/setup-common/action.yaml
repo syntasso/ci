@@ -74,31 +74,6 @@ runs:
         check-latest: true
         cache-dependency-path: ${{ inputs.path }}/go.sum
 
-    - name: Setup Docker Buildx
-      id: setup-buildx
-      uses: docker/setup-buildx-action@v3
-
-    - name: Restore BuildKit cache
-      id: cache
-      uses: actions/cache@v4
-      with:
-        path: cache-mount
-        key: ${{ runner.os }}-buildkit-${{ github.sha }}
-        restore-keys: |
-          ${{ runner.os }}-buildkit-
-
-    - name: Restore Docker cache mounts
-      uses: reproducible-containers/buildkit-cache-dance@v3
-      with:
-        builder: ${{ steps.setup-buildx.outputs.name }}
-        cache-dir: cache-mount
-        dockerfile: Dockerfile
-        skip-extraction: ${{ steps.cache.outputs.cache-hit }}
-
-    - name: Export BuildKit cache dir
-      run: echo "BUILDKIT_CACHE_DIR=cache-mount" >> $GITHUB_ENV
-      shell: bash
-
     - name: Install Kind
       uses: helm/kind-action@v1
       with:
