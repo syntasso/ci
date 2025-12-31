@@ -74,6 +74,34 @@ runs:
         check-latest: true
         cache-dependency-path: ${{ inputs.path }}/go.sum
 
+    - name: Prepare cache control variables
+      if: "${{ inputs.path != '' }}"
+      shell: bash
+      run: |
+        cd "${{ inputs.path }}"
+        echo "GOLANGCI_LINT_VERSION=$(grep -E '^GOLANGCI_LINT_VERSION[[:space:]]*\?=' Makefile | tail -n1 | awk '{print $3}')" >> "$GITHUB_ENV"
+        echo "KUSTOMIZE_VERSION=$(grep -E '^KUSTOMIZE_VERSION[[:space:]]*\?=' Makefile | tail -n1 | awk '{print $3}')" >> "$GITHUB_ENV"
+        echo "CONTROLLER_TOOLS_VERSION=$(grep -E '^CONTROLLER_TOOLS_VERSION[[:space:]]*\?=' Makefile | tail -n1 | awk '{print $3}')" >> "$GITHUB_ENV"
+
+    - name: Cache build tools
+      if: "${{ inputs.path != '' }}"
+      uses: actions/cache@v4
+      with:
+        path: |
+          ${{ inputs.path }}/bin/golangci-lint*
+          ${{ inputs.path }}/bin/kustomize*
+          ${{ inputs.path }}/bin/controller-gen*
+        key: ${{ runner.os }}-kratix-tools-${{ env.KUSTOMIZE_VERSION }}-${{ env.CONTROLLER_TOOLS_VERSION }}-${{ env.GOLANGCI_LINT_VERSION }}
+
+    - name: Install build tools
+      if: "${{ inputs.path != '' }}"
+      shell: bash
+      run: |
+        cd "${{ inputs.path }}"
+        make controller-gen
+        make kustomize
+        make golangci-lint
+
     - name: Install Kind
       uses: helm/kind-action@v1
       with:
