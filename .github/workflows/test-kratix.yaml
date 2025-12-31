@@ -92,7 +92,7 @@ jobs:
       - name: Build Kratix image
         run: |
           cd kratix
-          ./scripts/quick-start.sh --build-image --verbose
+          ./scripts/quick-start.sh --build-image
 
   quick-start-test:
     runs-on: ubuntu-latest
