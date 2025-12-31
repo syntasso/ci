@@ -92,7 +92,7 @@ runs:
       with:
         builder: ${{ steps.setup-buildx.outputs.name }}
         cache-dir: cache-mount
-        dockerfile: ${{ inputs.path }}/Dockerfile
+        dockerfile: Dockerfile
         skip-extraction: ${{ steps.cache.outputs.cache-hit }}
 
     - name: Install Kind
