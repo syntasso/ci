@@ -54,9 +54,20 @@ jobs:
           echo "KUSTOMIZE_VERSION=$(grep -E '^KUSTOMIZE_VERSION[[:space:]]*\?=' Makefile | tail -n1 | awk '{print $3}')" >> $GITHUB_ENV
           echo "CONTROLLER_TOOLS_VERSION=$(grep -E '^CONTROLLER_TOOLS_VERSION[[:space:]]*\?=' Makefile | tail -n1 | awk '{print $3}')" >> $GITHUB_ENV
           echo "GOVULNCHECK_CACHE_DATE=$(date +%F)" >> $GITHUB_ENV
+      - name: Cache build tools
+        uses: actions/cache@v4
+        with:
+          path: |
+            kratix/bin/golangci-lint
+            kratix/bin/kustomize
+            kratix/bin/controller-gen*
+          key: ${{ runner.os }}-kratix-tools-${{ env.KUSTOMIZE_VERSION }}-${{ env.CONTROLLER_TOOLS_VERSION }}-${{ env.GOLANGCI_LINT_VERSION }}
       - name: Lint
         run: |
           cd kratix
+          if [ ! -x ./bin/golangci-lint ]; then
+            curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s ${GOLANGCI_LINT_VERSION}
+          fi
           ./bin/golangci-lint run --config=.golangci-required.yml
       - name: Cache govulncheck
         uses: actions/cache@v4
