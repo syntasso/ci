@@ -92,7 +92,9 @@ jobs:
       - name: Build Kratix image
         run: |
           cd kratix
-          ./scripts/quick-start.sh --build-image
+          kind create cluster --name platform
+          source scripts/quick-start.sh
+          _build_kratix_image
 
   quick-start-test:
     runs-on: ubuntu-latest
