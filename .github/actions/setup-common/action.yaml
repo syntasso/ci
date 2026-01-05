@@ -38,6 +38,10 @@ inputs:
     description: 'Whether to enable tmate ssh debugging session (true/false)'
     required: false
     default: 'false'
+  tools_base_path:
+    description: 'Base path where tools will be installed and cached'
+    required: false
+    default: 'kratix'
 
 runs:
   using: 'composite'
@@ -73,6 +77,28 @@ runs:
         go-version: 1.24
         check-latest: true
         cache-dependency-path: ${{ inputs.path }}/go.sum
+
+    - name: Prepare cache control variables
+      shell: bash
+      run: |
+        cd "${{ inputs.tools_base_path }}"
+        echo "KUSTOMIZE_VERSION=$(grep -E '^KUSTOMIZE_VERSION[[:space:]]*\?=' Makefile | tail -n1 | awk '{print $3}')" >> "$GITHUB_ENV"
+        echo "CONTROLLER_TOOLS_VERSION=$(grep -E '^CONTROLLER_TOOLS_VERSION[[:space:]]*\?=' Makefile | tail -n1 | awk '{print $3}')" >> "$GITHUB_ENV"
+
+    - name: Cache build tools
+      uses: actions/cache@v4
+      with:
+        path: |
+          ${{ inputs.tools_base_path }}/bin/kustomize*
+          ${{ inputs.tools_base_path }}/bin/controller-gen*
+        key: ${{ runner.os }}-kratix-tools-${{ env.KUSTOMIZE_VERSION }}-${{ env.CONTROLLER_TOOLS_VERSION }}
+
+    - name: Install build tools
+      shell: bash
+      run: |
+        cd "${{ inputs.tools_base_path }}"
+        make controller-gen
+        make kustomize
 
     - name: Install Kind
       uses: helm/kind-action@v1
