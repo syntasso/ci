@@ -59,6 +59,19 @@ jobs:
     runs-on: ubuntu-latest
     needs: [unit-tests-and-lint]
     steps:
+      - name: Checkout ci repository
+        uses: actions/checkout@v4
+        with:
+          repository: syntasso/ci
+
+      - name: Setup Common Environment
+        uses: ./.github/actions/setup-common
+        with:
+          repository: syntasso/kratix
+          ref: ${{ github.event.inputs.sha }}
+          path: kratix
+          ssh_session: ${{ github.event.inputs.ssh_session }}
+
       - name: Build Kratix image
         run: |
           cd kratix
