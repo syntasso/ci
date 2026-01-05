@@ -46,6 +46,7 @@ jobs:
           submodule_repository: syntasso/kratix
           submodule_ref: ${{ github.event.inputs.sha }}
           submodule_path: enterprise-kratix/read-only-kratix
+          tools_base_path: enterprise-kratix/read-only-kratix
           ssh_session: ${{ github.event.inputs.ssh_session }}
       - name: Quick start tests
         env:
@@ -73,6 +74,7 @@ jobs:
           submodule_repository: syntasso/kratix
           submodule_ref: ${{ github.event.inputs.sha }}
           submodule_path: enterprise-kratix/read-only-kratix
+          tools_base_path: enterprise-kratix/read-only-kratix
           ssh_session: ${{ github.event.inputs.ssh_session }}
       - name: Install vCluster CLI
         uses: loft-sh/setup-vcluster@main
@@ -102,6 +104,7 @@ jobs:
           submodule_repository: syntasso/kratix
           submodule_ref: ${{ github.event.inputs.sha }}
           submodule_path: enterprise-kratix/read-only-kratix
+          tools_base_path: enterprise-kratix/read-only-kratix
           ssh_session: ${{ github.event.inputs.ssh_session }}
       - name: Setup Backstage Environment
         uses: ./.github/actions/setup-backstage
@@ -139,6 +142,7 @@ jobs:
           submodule_repository: syntasso/kratix
           submodule_ref: ${{ github.event.inputs.sha }}
           submodule_path: enterprise-kratix/read-only-kratix
+          tools_base_path: enterprise-kratix/read-only-kratix
           ssh_session: ${{ github.event.inputs.ssh_session }}
       - name: Run make test-e2e-ci
         run: |
