@@ -55,6 +55,9 @@ jobs:
           go install golang.org/x/vuln/cmd/govulncheck@latest
           govulncheck ./...
 
+  build-kratix-image:
+    runs-on: ubuntu-latest
+    steps:
       - name: Build Kratix image
         run: |
           cd kratix
