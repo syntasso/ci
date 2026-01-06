@@ -82,9 +82,6 @@ jobs:
       - name: Build Kratix image
         run: |
           cd kratix
-          echo "Building Kratix Image"
-          make docker-build
-          echo "Exporting Image Tar"
           EXPORT_IMAGE_TAR=$(make export-image)
           echo "Image saved to: ${EXPORT_IMAGE_TAR}"
           echo "EXPORT_IMAGE_TAR=${EXPORT_IMAGE_TAR}" >> "${GITHUB_ENV}"
