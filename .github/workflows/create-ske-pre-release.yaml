@@ -147,6 +147,7 @@ jobs:
           submodule_repository: syntasso/kratix
           submodule_ref: ${{ github.event.inputs.sha }}
           submodule_path: enterprise-kratix/read-only-kratix
+          tools_base_path: enterprise-kratix/read-only-kratix
           ssh_session: ${{ github.event.inputs.ssh_session }}
       - name: Run downgrade test
         run: |
