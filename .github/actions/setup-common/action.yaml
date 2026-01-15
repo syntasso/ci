@@ -82,6 +82,7 @@ runs:
       shell: bash
       run: |
         cd "${{ inputs.tools_base_path }}"
+        echo "GO_VERSION=$(go env GOVERSION)" >> "$GITHUB_ENV"
         echo "KUSTOMIZE_VERSION=$(grep -E '^KUSTOMIZE_VERSION[[:space:]]*\?=' Makefile | tail -n1 | awk '{print $3}')" >> "$GITHUB_ENV"
         echo "CONTROLLER_TOOLS_VERSION=$(grep -E '^CONTROLLER_TOOLS_VERSION[[:space:]]*\?=' Makefile | tail -n1 | awk '{print $3}')" >> "$GITHUB_ENV"
 
@@ -91,7 +92,7 @@ runs:
         path: |
           ${{ inputs.tools_base_path }}/bin/kustomize*
           ${{ inputs.tools_base_path }}/bin/controller-gen*
-        key: ${{ runner.os }}-kratix-tools-${{ env.KUSTOMIZE_VERSION }}-${{ env.CONTROLLER_TOOLS_VERSION }}
+        key: ${{ runner.os }}-kratix-tools-${{ env.GO_VERSION }}-${{ env.KUSTOMIZE_VERSION }}-${{ env.CONTROLLER_TOOLS_VERSION }}
 
     - name: Install build tools
       shell: bash
@@ -109,4 +110,4 @@ runs:
     - name: Setup Flux CLI
       uses: fluxcd/flux2/action@main
       with:
-        version: '2.4.0' 
+        version: '2.4.0'
