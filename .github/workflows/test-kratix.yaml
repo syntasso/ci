@@ -176,27 +176,21 @@ jobs:
         flags:
           - name: default
             env:
-              DOCKER_BUILDKIT: "1"
-              ACK_GINKGO_RC: "true"
-              TEST_GIT_WRITER_GITHUB_APP_ID: "${{ secrets.TEST_GIT_WRITER_GITHUB_APP_ID }}"
-              TEST_GIT_WRITER_GITHUB_APP_INSTALLATION_ID: "${{ secrets.TEST_GIT_WRITER_GITHUB_APP_INSTALLATION_ID }}"
-              TEST_GIT_WRITER_GITHUB_APP_PRIVATE_KEY: "${{ secrets.TEST_GIT_WRITER_GITHUB_APP_PRIVATE_KEY }}"
-              TEST_GIT_WRITER_GITHUB_HTTP_PAT: "${{ secrets.TEST_GIT_WRITER_GITHUB_HTTP_PAT }}"
-              TEST_GIT_WRITER_GITHUB_SSH_PRIVATE_KEY: "${{ secrets.TEST_GIT_WRITER_GITHUB_SSH_PRIVATE_KEY }}"
 
           - name: ff-promise-upgrade
             env:
-              DOCKER_BUILDKIT: "1"
-              ACK_GINKGO_RC: "true"
               UPGRADE_ENABLED: "true"
-              TEST_GIT_WRITER_GITHUB_APP_ID: "${{ secrets.TEST_GIT_WRITER_GITHUB_APP_ID }}"
-              TEST_GIT_WRITER_GITHUB_APP_INSTALLATION_ID: "${{ secrets.TEST_GIT_WRITER_GITHUB_APP_INSTALLATION_ID }}"
-              TEST_GIT_WRITER_GITHUB_APP_PRIVATE_KEY: "${{ secrets.TEST_GIT_WRITER_GITHUB_APP_PRIVATE_KEY }}"
-              TEST_GIT_WRITER_GITHUB_HTTP_PAT: "${{ secrets.TEST_GIT_WRITER_GITHUB_HTTP_PAT }}"
-              TEST_GIT_WRITER_GITHUB_SSH_PRIVATE_KEY: "${{ secrets.TEST_GIT_WRITER_GITHUB_SSH_PRIVATE_KEY }}"
 
     name: system-test (${{ matrix.flags.name }})
+    env:
+      DOCKER_BUILDKIT: "1"
+      ACK_GINKGO_RC: "true"
     steps:
+
+      - name: set conditional env vars
+        run: |
+         echo "UPGRADE_ENABLED: $UPGRADE_ENABLED"; if [ "${{ matrix.flags.env.UPGRADE_ENABLED }}" == "true" ]; then echo "UPGRADE_ENABLED=true" >> "${GITHUB_ENV}"; fi
+          
       - name: Checkout ci repository
         uses: actions/checkout@v4
         with:
@@ -233,7 +227,12 @@ jobs:
           docker load -i "${image_tar}"
 
       - name: System Tests
-        env: ${{ matrix.flags.env }}
+        env:
+          TEST_GIT_WRITER_GITHUB_APP_ID: "${{ secrets.TEST_GIT_WRITER_GITHUB_APP_ID }}"
+          TEST_GIT_WRITER_GITHUB_APP_INSTALLATION_ID: "${{ secrets.TEST_GIT_WRITER_GITHUB_APP_INSTALLATION_ID }}"
+          TEST_GIT_WRITER_GITHUB_APP_PRIVATE_KEY: "${{ secrets.TEST_GIT_WRITER_GITHUB_APP_PRIVATE_KEY }}"
+          TEST_GIT_WRITER_GITHUB_HTTP_PAT: "${{ secrets.TEST_GIT_WRITER_GITHUB_HTTP_PAT }}"
+          TEST_GIT_WRITER_GITHUB_SSH_PRIVATE_KEY: "${{ secrets.TEST_GIT_WRITER_GITHUB_SSH_PRIVATE_KEY }}"
         run: |
           cd kratix
           make system-test
