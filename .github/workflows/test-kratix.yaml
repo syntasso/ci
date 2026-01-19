@@ -27,6 +27,74 @@ on:
 
 jobs:
 
+  build-kratix-image:
+    runs-on: ubuntu-latest
+    needs: [unit-tests-and-lint]
+    steps:
+      - name: Checkout ci repository
+        uses: actions/checkout@v4
+        with:
+          repository: syntasso/ci
+
+      - name: Setup Common Environment
+        uses: ./.github/actions/setup-common
+        with:
+          repository: syntasso/kratix
+          ref: ${{ github.event.inputs.sha }}
+          path: kratix
+          ssh_session: ${{ github.event.inputs.ssh_session }}
+
+      - name: Start tmate ssh debugging session
+        if: "${{ inputs.ssh_session == 'true' }}"
+        uses: mxschmitt/action-tmate@v3
+        with:
+          limit-access-to-actor: true
+          detached: true
+
+      - name: Build Kratix image
+        run: |
+          cd kratix
+          EXPORT_IMAGE_TAR=$(make export-image)
+          echo "Image saved to: ${EXPORT_IMAGE_TAR}"
+          echo "EXPORT_IMAGE_TAR=${EXPORT_IMAGE_TAR}" >> "${GITHUB_ENV}"
+
+      - name: Upload Kratix image artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: kratix-image-${{ github.run_id }}
+          path: ${{ env.EXPORT_IMAGE_TAR }}
+          retention-days: 1
+
+  build-quick-start-installer-image:
+    runs-on: ubuntu-latest
+    needs: [unit-tests-and-lint]
+    steps:
+      - name: Checkout ci repository
+        uses: actions/checkout@v4
+        with:
+          repository: syntasso/ci
+
+      - name: Setup Common Environment
+        uses: ./.github/actions/setup-common
+        with:
+          repository: syntasso/kratix
+          ref: ${{ github.event.inputs.sha }}
+          path: kratix
+          ssh_session: ${{ github.event.inputs.ssh_session }}
+
+      - name: Build quick-start installer image
+        run: |
+          cd kratix/hack/kratix-quick-start-installer
+          QUICK_START_INSTALLER_TAR=$(make export-image)
+          echo "QUICK_START_INSTALLER_TAR=${QUICK_START_INSTALLER_TAR}" >> "${GITHUB_ENV}"
+
+      - name: Upload quick-start installer image artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: quick-start-installer-image-${{ github.run_id }}
+          path: ${{ env.QUICK_START_INSTALLER_TAR }}
+          retention-days: 1
+
   system-test:
     runs-on: ubuntu-latest
     needs: [build-kratix-image, build-quick-start-installer-image]
