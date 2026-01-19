@@ -1,5 +1,6 @@
 name: Test Kratix
 
+
 on:
   workflow_dispatch:
     inputs:
@@ -162,4 +163,3 @@ jobs:
         run: |
           cd kratix
           make system-test
-
