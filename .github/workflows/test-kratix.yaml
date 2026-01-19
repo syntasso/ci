@@ -99,6 +99,7 @@ jobs:
     needs: [build-kratix-image, build-quick-start-installer-image]
     strategy:
       fail-fast: false
+      max-parallel: 1  # Run one at a time
       matrix:
         flags:
           - name: default
