@@ -227,12 +227,6 @@ jobs:
           docker load -i "${image_tar}"
 
       - name: System Tests
-        env:
-          TEST_GIT_WRITER_GITHUB_APP_ID: "${{ secrets.TEST_GIT_WRITER_GITHUB_APP_ID }}"
-          TEST_GIT_WRITER_GITHUB_APP_INSTALLATION_ID: "${{ secrets.TEST_GIT_WRITER_GITHUB_APP_INSTALLATION_ID }}"
-          TEST_GIT_WRITER_GITHUB_APP_PRIVATE_KEY: "${{ secrets.TEST_GIT_WRITER_GITHUB_APP_PRIVATE_KEY }}"
-          TEST_GIT_WRITER_GITHUB_HTTP_PAT: "${{ secrets.TEST_GIT_WRITER_GITHUB_HTTP_PAT }}"
-          TEST_GIT_WRITER_GITHUB_SSH_PRIVATE_KEY: "${{ secrets.TEST_GIT_WRITER_GITHUB_SSH_PRIVATE_KEY }}"
         run: |
           cd kratix
           make system-test
@@ -355,3 +349,31 @@ jobs:
           STATE_STORE="bucket" ./scripts/helm-e2e-test.sh
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  integration-test-git-client:
+    runs-on: ubuntu-latest
+    needs: [unit-tests-and-lint]
+    steps:
+      - name: Checkout ci repository
+        uses: actions/checkout@v4
+        with:
+          repository: syntasso/ci
+
+      - name: Setup Common Environment
+        uses: ./.github/actions/setup-common
+        with:
+          repository: syntasso/kratix
+          ref: ${{ github.event.inputs.sha }}
+          path: kratix
+          ssh_session: ${{ github.event.inputs.ssh_session }}
+      - name: git-client-integration
+        run: |
+          cd kratix
+          make run-git-integration-test
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TEST_GIT_WRITER_GITHUB_APP_ID: "${{ secrets.TEST_GIT_WRITER_GITHUB_APP_ID }}"
+          TEST_GIT_WRITER_GITHUB_APP_INSTALLATION_ID: "${{ secrets.TEST_GIT_WRITER_GITHUB_APP_INSTALLATION_ID }}"
+          TEST_GIT_WRITER_GITHUB_APP_PRIVATE_KEY: "${{ secrets.TEST_GIT_WRITER_GITHUB_APP_PRIVATE_KEY }}"
+          TEST_GIT_WRITER_GITHUB_HTTP_PAT: "${{ secrets.TEST_GIT_WRITER_GITHUB_HTTP_PAT }}"
+          TEST_GIT_WRITER_GITHUB_SSH_PRIVATE_KEY: "${{ secrets.TEST_GIT_WRITER_GITHUB_SSH_PRIVATE_KEY }}"
