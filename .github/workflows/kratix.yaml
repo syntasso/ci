@@ -89,6 +89,7 @@ jobs:
       syntasso/ci/.github/workflows/test-kratix.yaml@main
     with:
       sha: ${{ github.event.inputs.sha }}
+    secrets: inherit
 
   release-kratix:
     needs: [test-kratix]
