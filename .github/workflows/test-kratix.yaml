@@ -237,7 +237,7 @@ jobs:
                   if [[ $status -ne 0 ]]; then
                       mkdir -p output/debug-test
                       cd output/debug-test
-                      POD="$(kubectl --context kind-platform -n kratix-platform-system get pods -l app.kubernetes.io/component=kratix-manager -o jsonpath='{.items[*].metadata.name}')"
+                      POD="$(kubectl --context kind-platform -n kratix-platform-system get pods -l app.kubernetes.io/instance=kratix-platform -o jsonpath='{.items[*].metadata.name}')"
                       kubectl --context kind-platform logs -n kratix-platform-system $POD > operator.logs
                       kubectl --context kind-platform get promises -oyaml > promises
                       kubectl --context kind-platform get destinations -oyaml > destinations
@@ -293,7 +293,7 @@ jobs:
                   if [[ $status -ne 0 ]]; then
                       mkdir -p output/debug-test
                       cd output/debug-test
-                      POD="$(kubectl --context kind-platform -n kratix-platform-system get pods -l app.kubernetes.io/component=kratix-manager -o jsonpath='{.items[*].metadata.name}')"
+                      POD="$(kubectl --context kind-platform -n kratix-platform-system get pods -l app.kubernetes.io/instance=kratix-platform -o jsonpath='{.items[*].metadata.name}')"
                       kubectl --context kind-platform logs -n kratix-platform-system $POD > operator.logs
                       kubectl --context kind-platform get promises -oyaml > promises
                       kubectl --context kind-platform get destinations -oyaml > destinations
