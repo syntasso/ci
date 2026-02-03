@@ -1,379 +1,424 @@
 name: Test Kratix
 
 on:
-  workflow_dispatch:
-    inputs:
-      sha:
-        description: "Commit sha of Kratix"
-        required: true
-        type: string
-      message:
-        description: "Commit message"
-        type: string
-        required: false
-      ssh_session:
-        type: boolean
-        description: "Run the build with tmate debugging."
-        required: false
-        default: false
-  workflow_call:
-    inputs:
-      sha:
-        required: true
-        type: string
-      message:
-        type: string
-        required: false
+    workflow_dispatch:
+        inputs:
+            sha:
+                description: "Commit sha of Kratix"
+                required: true
+                type: string
+            message:
+                description: "Commit message"
+                type: string
+                required: false
+            ssh_session:
+                type: boolean
+                description: "Run the build with tmate debugging."
+                required: false
+                default: false
+    workflow_call:
+        inputs:
+            sha:
+                required: true
+                type: string
+            message:
+                type: string
+                required: false
 
 jobs:
-  unit-tests-and-lint:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout ci repository
-        uses: actions/checkout@v4
-        with:
-          repository: syntasso/ci
-      - name: Setup Common Environment
-        uses: ./.github/actions/setup-common
-        with:
-          repository: syntasso/kratix
-          ref: ${{ github.event.inputs.sha }}
-          path: kratix
-          ssh_session: ${{ github.event.inputs.ssh_session }}
-      - name: Unit Tests
-        run: |
-          cd kratix
-          make test
-      - name: Lint
-        run: |
-          cd kratix
-          curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s v1.64.8
-          ./bin/golangci-lint run --config=.golangci-required.yml
-      - name: Go vulnerability check
-        run: |
-          cd kratix
-          go install golang.org/x/vuln/cmd/govulncheck@latest
-          govulncheck ./...
+    unit-tests-and-lint:
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout ci repository
+              uses: actions/checkout@v4
+              with:
+                  repository: syntasso/ci
+            - name: Setup Common Environment
+              uses: ./.github/actions/setup-common
+              with:
+                  repository: syntasso/kratix
+                  ref: ${{ github.event.inputs.sha }}
+                  path: kratix
+                  ssh_session: ${{ github.event.inputs.ssh_session }}
+            - name: Unit Tests
+              run: |
+                  cd kratix
+                  make test
+            - name: Lint
+              run: |
+                  cd kratix
+                  curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s v1.64.8
+                  ./bin/golangci-lint run --config=.golangci-required.yml
+            - name: Go vulnerability check
+              run: |
+                  cd kratix
+                  go install golang.org/x/vuln/cmd/govulncheck@latest
+                  govulncheck ./...
 
-  build-kratix-image:
-    runs-on: ubuntu-latest
-    needs: [unit-tests-and-lint]
-    steps:
-      - name: Checkout ci repository
-        uses: actions/checkout@v4
-        with:
-          repository: syntasso/ci
+    build-kratix-image:
+        runs-on: ubuntu-latest
+        needs: [unit-tests-and-lint]
+        steps:
+            - name: Checkout ci repository
+              uses: actions/checkout@v4
+              with:
+                  repository: syntasso/ci
 
-      - name: Setup Common Environment
-        uses: ./.github/actions/setup-common
-        with:
-          repository: syntasso/kratix
-          ref: ${{ github.event.inputs.sha }}
-          path: kratix
-          ssh_session: ${{ github.event.inputs.ssh_session }}
+            - name: Setup Common Environment
+              uses: ./.github/actions/setup-common
+              with:
+                  repository: syntasso/kratix
+                  ref: ${{ github.event.inputs.sha }}
+                  path: kratix
+                  ssh_session: ${{ github.event.inputs.ssh_session }}
 
-      - name: Start tmate ssh debugging session
-        if: "${{ inputs.ssh_session == 'true' }}"
-        uses: mxschmitt/action-tmate@v3
-        with:
-          limit-access-to-actor: true
-          detached: true
+            - name: Start tmate ssh debugging session
+              if: "${{ inputs.ssh_session == 'true' }}"
+              uses: mxschmitt/action-tmate@v3
+              with:
+                  limit-access-to-actor: true
+                  detached: true
 
-      - name: Build Kratix image
-        run: |
-          cd kratix
-          EXPORT_IMAGE_TAR=$(make export-image)
-          echo "Image saved to: ${EXPORT_IMAGE_TAR}"
-          echo "EXPORT_IMAGE_TAR=${EXPORT_IMAGE_TAR}" >> "${GITHUB_ENV}"
+            - name: Build Kratix image
+              run: |
+                  cd kratix
+                  EXPORT_IMAGE_TAR=$(make export-image)
+                  echo "Image saved to: ${EXPORT_IMAGE_TAR}"
+                  echo "EXPORT_IMAGE_TAR=${EXPORT_IMAGE_TAR}" >> "${GITHUB_ENV}"
 
-      - name: Upload Kratix image artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: kratix-image-${{ github.run_id }}
-          path: ${{ env.EXPORT_IMAGE_TAR }}
-          retention-days: 1
+            - name: Upload Kratix image artifact
+              uses: actions/upload-artifact@v4
+              with:
+                  name: kratix-image-${{ github.run_id }}
+                  path: ${{ env.EXPORT_IMAGE_TAR }}
+                  retention-days: 1
 
-  build-quick-start-installer-image:
-    runs-on: ubuntu-latest
-    needs: [unit-tests-and-lint]
-    steps:
-      - name: Checkout ci repository
-        uses: actions/checkout@v4
-        with:
-          repository: syntasso/ci
+    build-quick-start-installer-image:
+        runs-on: ubuntu-latest
+        needs: [unit-tests-and-lint]
+        steps:
+            - name: Checkout ci repository
+              uses: actions/checkout@v4
+              with:
+                  repository: syntasso/ci
 
-      - name: Setup Common Environment
-        uses: ./.github/actions/setup-common
-        with:
-          repository: syntasso/kratix
-          ref: ${{ github.event.inputs.sha }}
-          path: kratix
-          ssh_session: ${{ github.event.inputs.ssh_session }}
+            - name: Setup Common Environment
+              uses: ./.github/actions/setup-common
+              with:
+                  repository: syntasso/kratix
+                  ref: ${{ github.event.inputs.sha }}
+                  path: kratix
+                  ssh_session: ${{ github.event.inputs.ssh_session }}
 
-      - name: Build quick-start installer image
-        run: |
-          cd kratix/hack/kratix-quick-start-installer
-          QUICK_START_INSTALLER_TAR=$(make export-image)
-          echo "QUICK_START_INSTALLER_TAR=${QUICK_START_INSTALLER_TAR}" >> "${GITHUB_ENV}"
+            - name: Build quick-start installer image
+              run: |
+                  cd kratix/hack/kratix-quick-start-installer
+                  QUICK_START_INSTALLER_TAR=$(make export-image)
+                  echo "QUICK_START_INSTALLER_TAR=${QUICK_START_INSTALLER_TAR}" >> "${GITHUB_ENV}"
 
-      - name: Upload quick-start installer image artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: quick-start-installer-image-${{ github.run_id }}
-          path: ${{ env.QUICK_START_INSTALLER_TAR }}
-          retention-days: 1
+            - name: Upload quick-start installer image artifact
+              uses: actions/upload-artifact@v4
+              with:
+                  name: quick-start-installer-image-${{ github.run_id }}
+                  path: ${{ env.QUICK_START_INSTALLER_TAR }}
+                  retention-days: 1
 
-  quick-start-test:
-    runs-on: ubuntu-latest
-    needs: [build-kratix-image, build-quick-start-installer-image]
-    steps:
-      - name: Checkout ci repository
-        uses: actions/checkout@v4
-        with:
-          repository: syntasso/ci
+    quick-start-test:
+        runs-on: ubuntu-latest
+        needs: [build-kratix-image, build-quick-start-installer-image]
+        steps:
+            - name: Checkout ci repository
+              uses: actions/checkout@v4
+              with:
+                  repository: syntasso/ci
 
-      - name: Setup Common Environment
-        uses: ./.github/actions/setup-common
-        with:
-          repository: syntasso/kratix
-          ref: ${{ github.event.inputs.sha }}
-          path: kratix
-          ssh_session: ${{ github.event.inputs.ssh_session }}
+            - name: Setup Common Environment
+              uses: ./.github/actions/setup-common
+              with:
+                  repository: syntasso/kratix
+                  ref: ${{ github.event.inputs.sha }}
+                  path: kratix
+                  ssh_session: ${{ github.event.inputs.ssh_session }}
 
-      - name: Download quick-start installer image artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: quick-start-installer-image-${{ github.run_id }}
-          path: ${{ runner.temp }}/quick-start-installer-image
+            - name: Download quick-start installer image artifact
+              uses: actions/download-artifact@v4
+              with:
+                  name: quick-start-installer-image-${{ github.run_id }}
+                  path: ${{ runner.temp }}/quick-start-installer-image
 
-      - name: Load quick-start installer image
-        run: |
-          image_tar=$(ls $RUNNER_TEMP/quick-start-installer-image/*.tar | head -1)
-          docker load -i "${image_tar}"
+            - name: Load quick-start installer image
+              run: |
+                  image_tar=$(ls $RUNNER_TEMP/quick-start-installer-image/*.tar | head -1)
+                  docker load -i "${image_tar}"
 
-      - name: Download Kratix image artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: kratix-image-${{ github.run_id }}
-          path: ${{ runner.temp }}/kratix-image
+            - name: Download Kratix image artifact
+              uses: actions/download-artifact@v4
+              with:
+                  name: kratix-image-${{ github.run_id }}
+                  path: ${{ runner.temp }}/kratix-image
 
-      - name: Load Kratix image
-        run: |
-          image_tar=$(ls $RUNNER_TEMP/kratix-image/*.tar)
-          docker load -i "${image_tar}"
+            - name: Load Kratix image
+              run: |
+                  image_tar=$(ls $RUNNER_TEMP/kratix-image/*.tar)
+                  docker load -i "${image_tar}"
 
-      - name: System Tests
-        run: |
-          cd kratix
-          DOCKER_BUILDKIT=1 ACK_GINKGO_RC=true cd hack/kratix-quick-start-installer && make system-test
+            - name: System Tests
+              run: |
+                  cd kratix
+                  DOCKER_BUILDKIT=1 ACK_GINKGO_RC=true cd hack/kratix-quick-start-installer && make system-test
 
-  system-test:
-    runs-on: ubuntu-latest
-    needs: [build-kratix-image, build-quick-start-installer-image]
-    strategy:
-      fail-fast: false
-      matrix:
-        flags:
-          - name: default
-            env:
+    system-test:
+        runs-on: ubuntu-latest
+        needs: [build-kratix-image, build-quick-start-installer-image]
+        strategy:
+            fail-fast: false
+            matrix:
+                flags:
+                    - name: default
+                      env:
 
-          - name: ff-promise-upgrade
-            env:
-              UPGRADE_ENABLED: "true"
+                    - name: ff-promise-upgrade
+                      env:
+                          UPGRADE_ENABLED: "true"
 
-    name: system-test (${{ matrix.flags.name }})
-    env:
-      DOCKER_BUILDKIT: "1"
-      ACK_GINKGO_RC: "true"
-    steps:
-
-      - name: set conditional env vars
-        run: |
-         echo "UPGRADE_ENABLED: $UPGRADE_ENABLED"; if [ "${{ matrix.flags.env.UPGRADE_ENABLED }}" == "true" ]; then echo "UPGRADE_ENABLED=true" >> "${GITHUB_ENV}"; fi
-          
-      - name: Checkout ci repository
-        uses: actions/checkout@v4
-        with:
-          repository: syntasso/ci
-
-      - name: Setup Common Environment
-        uses: ./.github/actions/setup-common
-        with:
-          repository: syntasso/kratix
-          ref: ${{ github.event.inputs.sha }}
-          path: kratix
-          ssh_session: ${{ github.event.inputs.ssh_session }}
-
-      - name: Download quick-start installer image artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: quick-start-installer-image-${{ github.run_id }}
-          path: ${{ runner.temp }}/quick-start-installer-image
-
-      - name: Load quick-start installer image
-        run: |
-          image_tar=$(ls $RUNNER_TEMP/quick-start-installer-image/*.tar | head -1)
-          docker load -i "${image_tar}"
-
-      - name: Download Kratix image artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: kratix-image-${{ github.run_id }}
-          path: ${{ runner.temp }}/kratix-image
-
-      - name: Load Kratix image
-        run: |
-          image_tar=$(ls $RUNNER_TEMP/kratix-image/*.tar)
-          docker load -i "${image_tar}"
-
-      - name: System Tests
-        run: |
-          cd kratix
-          make system-test
-
-  core-test:
-    runs-on: ubuntu-latest
-    needs: [build-kratix-image]
-    steps:
-      - name: Checkout ci repository
-        uses: actions/checkout@v4
-        with:
-          repository: syntasso/ci
-
-      - name: Setup Common Environment
-        uses: ./.github/actions/setup-common
-        with:
-          repository: syntasso/kratix
-          ref: ${{ github.event.inputs.sha }}
-          path: kratix
-          ssh_session: ${{ github.event.inputs.ssh_session }}
-
-      - name: Download Kratix image artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: kratix-image-${{ github.run_id }}
-          path: ${{ runner.temp }}/kratix-image
-
-      - name: Load Kratix image
-        run: |
-          image_tar=$(ls $RUNNER_TEMP/kratix-image/*.tar)
-          docker load -i "${image_tar}"
-
-      - name: System Tests
-        run: |
-          cd kratix
-          DOCKER_BUILDKIT=1 ACK_GINKGO_RC=true make core-test
-
-  integration-test-git:
-    runs-on: ubuntu-latest
-    needs: [build-kratix-image]
-    steps:
-      - name: Checkout ci repository
-        uses: actions/checkout@v4
-        with:
-          repository: syntasso/ci
-
-      - name: Setup Common Environment
-        uses: ./.github/actions/setup-common
-        with:
-          repository: syntasso/kratix
-          ref: ${{ github.event.inputs.sha }}
-          path: kratix
-          ssh_session: ${{ github.event.inputs.ssh_session }}
-
-      - name: Download Kratix image artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: kratix-image-${{ github.run_id }}
-          path: ${{ runner.temp }}/kratix-image
-
-      - name: Load Kratix image
-        run: |
-          image_tar=$(ls $RUNNER_TEMP/kratix-image/*.tar)
-          docker load -i "${image_tar}"
-
-      - name: Checkout out kratix helm charts
-        uses: actions/checkout@v4
-        with:
-          repository: syntasso/helm-charts
-          path: kratix/charts
-
-      - name: Install Helm
-        uses: azure/setup-helm@v3
-      - name: e2e-demo-test-helm-git
-        run: |
-          cd kratix
-          STATE_STORE="git" ./scripts/helm-e2e-test.sh
+        name: system-test (${{ matrix.flags.name }})
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+            DOCKER_BUILDKIT: "1"
+            ACK_GINKGO_RC: "true"
+        steps:
+            - name: set conditional env vars
+              run: |
+                  echo "UPGRADE_ENABLED: $UPGRADE_ENABLED"; if [ "${{ matrix.flags.env.UPGRADE_ENABLED }}" == "true" ]; then echo "UPGRADE_ENABLED=true" >> "${GITHUB_ENV}"; fi
 
-  integration-test-bucket:
-    runs-on: ubuntu-latest
-    needs: [build-kratix-image]
-    steps:
-      - name: Checkout ci repository
-        uses: actions/checkout@v4
-        with:
-          repository: syntasso/ci
+            - name: Checkout ci repository
+              uses: actions/checkout@v4
+              with:
+                  repository: syntasso/ci
 
-      - name: Setup Common Environment
-        uses: ./.github/actions/setup-common
-        with:
-          repository: syntasso/kratix
-          ref: ${{ github.event.inputs.sha }}
-          path: kratix
-          ssh_session: ${{ github.event.inputs.ssh_session }}
+            - name: Setup Common Environment
+              uses: ./.github/actions/setup-common
+              with:
+                  repository: syntasso/kratix
+                  ref: ${{ github.event.inputs.sha }}
+                  path: kratix
+                  ssh_session: ${{ github.event.inputs.ssh_session }}
 
-      - name: Download Kratix image artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: kratix-image-${{ github.run_id }}
-          path: ${{ runner.temp }}/kratix-image
+            - name: Download quick-start installer image artifact
+              uses: actions/download-artifact@v4
+              with:
+                  name: quick-start-installer-image-${{ github.run_id }}
+                  path: ${{ runner.temp }}/quick-start-installer-image
 
-      - name: Load Kratix image
-        run: |
-          image_tar=$(ls $RUNNER_TEMP/kratix-image/*.tar)
-          docker load -i "${image_tar}"
+            - name: Load quick-start installer image
+              run: |
+                  image_tar=$(ls $RUNNER_TEMP/quick-start-installer-image/*.tar | head -1)
+                  docker load -i "${image_tar}"
 
-      - name: Checkout out kratix helm charts
-        uses: actions/checkout@v4
-        with:
-          repository: syntasso/helm-charts
-          path: kratix/charts
+            - name: Download Kratix image artifact
+              uses: actions/download-artifact@v4
+              with:
+                  name: kratix-image-${{ github.run_id }}
+                  path: ${{ runner.temp }}/kratix-image
 
-      - name: Install Helm
-        uses: azure/setup-helm@v3
-      - name: e2e-demo-test-helm-bucket
-        run: |
-          cd kratix
-          STATE_STORE="bucket" ./scripts/helm-e2e-test.sh
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+            - name: Load Kratix image
+              run: |
+                  image_tar=$(ls $RUNNER_TEMP/kratix-image/*.tar)
+                  docker load -i "${image_tar}"
 
-  integration-test-git-client:
-    runs-on: ubuntu-latest
-    needs: [unit-tests-and-lint]
-    steps:
-      - name: Checkout ci repository
-        uses: actions/checkout@v4
-        with:
-          repository: syntasso/ci
+            - name: System Tests
+              id: system_tests
+              run: |
+                  cd kratix
+                  make system-test
+                  set +e
+                  make system-test
+                  status=1 # testing for now; status=$?
+                  echo "system test exited with $status"
+                  if [[ $status -ne 0 ]]; then
+                      mkdir -p output/debug-test
+                      cd output/debug-test
+                      POD="$(kubectl --context kind-platform -n kratix-platform-system get pods -l app.kubernetes.io/component=kratix-manager -o jsonpath='{.items[*].metadata.name}')"
+                      kubectl --context kind-platform logs -n kratix-platform-system $POD > operator.logs
+                      kubectl --context kind-platform get promises -oyaml > promises
+                      kubectl --context kind-platform get destinations -oyaml > destinations
+                      kubectl --context kind-platform get works -A -oyaml > works
+                      kubectl --context kind-platform get jobs -A > jobs
+                      exit $status
+                  fi
 
-      - name: Setup Common Environment
-        uses: ./.github/actions/setup-common
-        with:
-          repository: syntasso/kratix
-          ref: ${{ github.event.inputs.sha }}
-          path: kratix
-          ssh_session: ${{ github.event.inputs.ssh_session }}
-      - name: git-client-integration
-        run: |
-          cd kratix
-          make run-git-integration-test
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TEST_GIT_WRITER_GITHUB_APP_ID: "${{ secrets.TEST_GIT_WRITER_GITHUB_APP_ID }}"
-          TEST_GIT_WRITER_GITHUB_APP_INSTALLATION_ID: "${{ secrets.TEST_GIT_WRITER_GITHUB_APP_INSTALLATION_ID }}"
-          TEST_GIT_WRITER_GITHUB_APP_PRIVATE_KEY: "${{ secrets.TEST_GIT_WRITER_GITHUB_APP_PRIVATE_KEY }}"
-          TEST_GIT_WRITER_GITHUB_HTTP_PAT: "${{ secrets.TEST_GIT_WRITER_GITHUB_HTTP_PAT }}"
-          TEST_GIT_WRITER_GITHUB_SSH_PRIVATE_KEY: "${{ secrets.TEST_GIT_WRITER_GITHUB_SSH_PRIVATE_KEY }}"
+            - name: Gather controller logs and statuses
+              if: ${{ always() && steps.system_tests.outcome == 'failure' }}
+              uses: actions/upload-artifact@v4
+              with:
+                  name: system-test-debug-report
+                  path: output/debug-test
+                  retention-days: 3
+
+    core-test:
+        runs-on: ubuntu-latest
+        needs: [build-kratix-image]
+        steps:
+            - name: Checkout ci repository
+              uses: actions/checkout@v4
+              with:
+                  repository: syntasso/ci
+
+            - name: Setup Common Environment
+              uses: ./.github/actions/setup-common
+              with:
+                  repository: syntasso/kratix
+                  ref: ${{ github.event.inputs.sha }}
+                  path: kratix
+                  ssh_session: ${{ github.event.inputs.ssh_session }}
+
+            - name: Download Kratix image artifact
+              uses: actions/download-artifact@v4
+              with:
+                  name: kratix-image-${{ github.run_id }}
+                  path: ${{ runner.temp }}/kratix-image
+
+            - name: Load Kratix image
+              run: |
+                  image_tar=$(ls $RUNNER_TEMP/kratix-image/*.tar)
+                  docker load -i "${image_tar}"
+
+            - name: Core Tests
+              id: core_tests
+              run: |
+                  cd kratix
+                  set +e
+                  DOCKER_BUILDKIT=1 ACK_GINKGO_RC=true make core-test
+                  status=1 # testing for now; status=$?
+                  echo "core test exited with $status"
+                  if [[ $status -ne 0 ]]; then
+                      mkdir -p output/debug-test
+                      cd output/debug-test
+                      POD="$(kubectl --context kind-platform -n kratix-platform-system get pods -l app.kubernetes.io/component=kratix-manager -o jsonpath='{.items[*].metadata.name}')"
+                      kubectl --context kind-platform logs -n kratix-platform-system $POD > operator.logs
+                      kubectl --context kind-platform get promises -oyaml > promises
+                      kubectl --context kind-platform get destinations -oyaml > destinations
+                      kubectl --context kind-platform get works -A -oyaml > works
+                      kubectl --context kind-platform get jobs -A > jobs
+                      exit $status
+                  fi
+            - name: Gather controller logs and statuses
+              if: ${{ always() && steps.core_tests.outcome == 'failure' }}
+              uses: actions/upload-artifact@v4
+              with:
+                  name: core-test-debug-report
+                  path: output/debug-test
+                  retention-days: 3
+
+    integration-test-git:
+        runs-on: ubuntu-latest
+        needs: [build-kratix-image]
+        steps:
+            - name: Checkout ci repository
+              uses: actions/checkout@v4
+              with:
+                  repository: syntasso/ci
+
+            - name: Setup Common Environment
+              uses: ./.github/actions/setup-common
+              with:
+                  repository: syntasso/kratix
+                  ref: ${{ github.event.inputs.sha }}
+                  path: kratix
+                  ssh_session: ${{ github.event.inputs.ssh_session }}
+
+            - name: Download Kratix image artifact
+              uses: actions/download-artifact@v4
+              with:
+                  name: kratix-image-${{ github.run_id }}
+                  path: ${{ runner.temp }}/kratix-image
+
+            - name: Load Kratix image
+              run: |
+                  image_tar=$(ls $RUNNER_TEMP/kratix-image/*.tar)
+                  docker load -i "${image_tar}"
+
+            - name: Checkout out kratix helm charts
+              uses: actions/checkout@v4
+              with:
+                  repository: syntasso/helm-charts
+                  path: kratix/charts
+
+            - name: Install Helm
+              uses: azure/setup-helm@v3
+            - name: e2e-demo-test-helm-git
+              run: |
+                  cd kratix
+                  STATE_STORE="git" ./scripts/helm-e2e-test.sh
+              env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    integration-test-bucket:
+        runs-on: ubuntu-latest
+        needs: [build-kratix-image]
+        steps:
+            - name: Checkout ci repository
+              uses: actions/checkout@v4
+              with:
+                  repository: syntasso/ci
+
+            - name: Setup Common Environment
+              uses: ./.github/actions/setup-common
+              with:
+                  repository: syntasso/kratix
+                  ref: ${{ github.event.inputs.sha }}
+                  path: kratix
+                  ssh_session: ${{ github.event.inputs.ssh_session }}
+
+            - name: Download Kratix image artifact
+              uses: actions/download-artifact@v4
+              with:
+                  name: kratix-image-${{ github.run_id }}
+                  path: ${{ runner.temp }}/kratix-image
+
+            - name: Load Kratix image
+              run: |
+                  image_tar=$(ls $RUNNER_TEMP/kratix-image/*.tar)
+                  docker load -i "${image_tar}"
+
+            - name: Checkout out kratix helm charts
+              uses: actions/checkout@v4
+              with:
+                  repository: syntasso/helm-charts
+                  path: kratix/charts
+
+            - name: Install Helm
+              uses: azure/setup-helm@v3
+            - name: e2e-demo-test-helm-bucket
+              run: |
+                  cd kratix
+                  STATE_STORE="bucket" ./scripts/helm-e2e-test.sh
+              env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    integration-test-git-client:
+        runs-on: ubuntu-latest
+        needs: [unit-tests-and-lint]
+        steps:
+            - name: Checkout ci repository
+              uses: actions/checkout@v4
+              with:
+                  repository: syntasso/ci
+
+            - name: Setup Common Environment
+              uses: ./.github/actions/setup-common
+              with:
+                  repository: syntasso/kratix
+                  ref: ${{ github.event.inputs.sha }}
+                  path: kratix
+                  ssh_session: ${{ github.event.inputs.ssh_session }}
+            - name: git-client-integration
+              run: |
+                  cd kratix
+                  make run-git-integration-test
+              env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+                  TEST_GIT_WRITER_GITHUB_APP_ID: "${{ secrets.TEST_GIT_WRITER_GITHUB_APP_ID }}"
+                  TEST_GIT_WRITER_GITHUB_APP_INSTALLATION_ID: "${{ secrets.TEST_GIT_WRITER_GITHUB_APP_INSTALLATION_ID }}"
+                  TEST_GIT_WRITER_GITHUB_APP_PRIVATE_KEY: "${{ secrets.TEST_GIT_WRITER_GITHUB_APP_PRIVATE_KEY }}"
+                  TEST_GIT_WRITER_GITHUB_HTTP_PAT: "${{ secrets.TEST_GIT_WRITER_GITHUB_HTTP_PAT }}"
+                  TEST_GIT_WRITER_GITHUB_SSH_PRIVATE_KEY: "${{ secrets.TEST_GIT_WRITER_GITHUB_SSH_PRIVATE_KEY }}"
