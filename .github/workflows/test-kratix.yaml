@@ -230,20 +230,19 @@ jobs:
               run: |
                   set +ex
                   cd kratix
-                  make quick-start
+                  make system-test
                   status=1 # testing for now; status=$?
                   echo "system test exited with $status"
                   if [[ $status -ne 0 ]]; then
                       cd ..
                       mkdir -p output/debug-test
                       cd output/debug-test
-                      kubectl get pods > pods.logs
-                      # POD="$(kubectl --context kind-platform -n kratix-platform-system get pods -l app.kubernetes.io/instance=kratix-platform -o jsonpath='{.items[*].metadata.name}')"
-                      # kubectl --context kind-platform logs -n kratix-platform-system $POD > operator.logs
-                      # kubectl --context kind-platform get promises -oyaml > promises
-                      # kubectl --context kind-platform get destinations -oyaml > destinations
-                      # kubectl --context kind-platform get works -A -oyaml > works
-                      # kubectl --context kind-platform get jobs -A > jobs
+                      POD="$(kubectl --context kind-platform -n kratix-platform-system get pods -l app.kubernetes.io/instance=kratix-platform -o jsonpath='{.items[*].metadata.name}')"
+                      kubectl --context kind-platform logs -n kratix-platform-system $POD > operator.logs
+                      kubectl --context kind-platform get promises -oyaml > promises.yaml
+                      kubectl --context kind-platform get destinations -oyaml > destinations.yaml
+                      kubectl --context kind-platform get works -A -oyaml > works.yaml
+                      kubectl --context kind-platform get jobs -A > jobs.yaml
                       exit $status
                   fi
 
@@ -251,7 +250,7 @@ jobs:
               if: ${{ always() && steps.system_tests.outcome == 'failure' }}
               uses: actions/upload-artifact@v4
               with:
-                  name: system-test-debug-report
+                  name: ${{ matrix.flags.name }}-system-test-debug-report
                   path: output/debug-test
                   retention-days: 3
 
