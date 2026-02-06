@@ -186,11 +186,10 @@ jobs:
       DOCKER_BUILDKIT: "1"
       ACK_GINKGO_RC: "true"
     steps:
-
       - name: set conditional env vars
         run: |
-         echo "UPGRADE_ENABLED: $UPGRADE_ENABLED"; if [ "${{ matrix.flags.env.UPGRADE_ENABLED }}" == "true" ]; then echo "UPGRADE_ENABLED=true" >> "${GITHUB_ENV}"; fi
-          
+          echo "UPGRADE_ENABLED: $UPGRADE_ENABLED"; if [ "${{ matrix.flags.env.UPGRADE_ENABLED }}" == "true" ]; then echo "UPGRADE_ENABLED=true" >> "${GITHUB_ENV}"; fi
+
       - name: Checkout ci repository
         uses: actions/checkout@v4
         with:
@@ -227,9 +226,33 @@ jobs:
           docker load -i "${image_tar}"
 
       - name: System Tests
+        id: system_tests
         run: |
+          set +ex
           cd kratix
           make system-test
+          status=$?
+          echo "system test exited with $status"
+          if [[ $status -ne 0 ]]; then
+            cd ..
+            mkdir -p output/debug-test
+            cd output/debug-test
+            POD="$(kubectl --context kind-platform -n kratix-platform-system get pods -l app.kubernetes.io/instance=kratix-platform -o jsonpath='{.items[*].metadata.name}')"
+            kubectl --context kind-platform logs -n kratix-platform-system $POD > operator.logs
+            kubectl --context kind-platform get promises -oyaml > promises.yaml
+            kubectl --context kind-platform get destinations -oyaml > destinations.yaml
+            kubectl --context kind-platform get works -A -oyaml > works.yaml
+            kubectl --context kind-platform get jobs -A > jobs.yaml
+            exit $status
+          fi
+
+      - name: Gather controller logs and statuses
+        if: ${{ always() && steps.system_tests.outcome == 'failure' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.flags.name }}-system-test-debug-report
+          path: output/debug-test
+          retention-days: 3
 
   core-test:
     runs-on: ubuntu-latest
@@ -259,10 +282,33 @@ jobs:
           image_tar=$(ls $RUNNER_TEMP/kratix-image/*.tar)
           docker load -i "${image_tar}"
 
-      - name: System Tests
+      - name: Core Tests
+        id: core_tests
         run: |
           cd kratix
+          set +ex
           DOCKER_BUILDKIT=1 ACK_GINKGO_RC=true make core-test
+          status=$?
+          echo "system test exited with $status"
+          if [[ $status -ne 0 ]]; then
+            cd ..
+            mkdir -p output/debug-test
+            cd output/debug-test
+            POD="$(kubectl --context kind-platform -n kratix-platform-system get pods -l app.kubernetes.io/instance=kratix-platform -o jsonpath='{.items[*].metadata.name}')"
+            kubectl --context kind-platform logs -n kratix-platform-system $POD > operator.logs
+            kubectl --context kind-platform get promises -oyaml > promises.yaml
+            kubectl --context kind-platform get destinations -oyaml > destinations.yaml
+            kubectl --context kind-platform get works -A -oyaml > works.yaml
+            kubectl --context kind-platform get jobs -A > jobs.yaml
+            exit $status
+          fi
+      - name: Gather controller logs and statuses
+        if: ${{ always() && steps.core_tests.outcome == 'failure' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: core-test-debug-report
+          path: output/debug-test
+          retention-days: 3
 
   integration-test-git:
     runs-on: ubuntu-latest
