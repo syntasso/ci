@@ -228,21 +228,22 @@ jobs:
             - name: System Tests
               id: system_tests
               run: |
+                  set +ex
                   cd kratix
-                  make system-test
-                  set +e
-                  make system-test
+                  make quick-start
                   status=1 # testing for now; status=$?
                   echo "system test exited with $status"
                   if [[ $status -ne 0 ]]; then
+                      cd ..
                       mkdir -p output/debug-test
                       cd output/debug-test
-                      POD="$(kubectl --context kind-platform -n kratix-platform-system get pods -l app.kubernetes.io/instance=kratix-platform -o jsonpath='{.items[*].metadata.name}')"
-                      kubectl --context kind-platform logs -n kratix-platform-system $POD > operator.logs
-                      kubectl --context kind-platform get promises -oyaml > promises
-                      kubectl --context kind-platform get destinations -oyaml > destinations
-                      kubectl --context kind-platform get works -A -oyaml > works
-                      kubectl --context kind-platform get jobs -A > jobs
+                      kubectl get pods > pods.logs
+                      # POD="$(kubectl --context kind-platform -n kratix-platform-system get pods -l app.kubernetes.io/instance=kratix-platform -o jsonpath='{.items[*].metadata.name}')"
+                      # kubectl --context kind-platform logs -n kratix-platform-system $POD > operator.logs
+                      # kubectl --context kind-platform get promises -oyaml > promises
+                      # kubectl --context kind-platform get destinations -oyaml > destinations
+                      # kubectl --context kind-platform get works -A -oyaml > works
+                      # kubectl --context kind-platform get jobs -A > jobs
                       exit $status
                   fi
 
