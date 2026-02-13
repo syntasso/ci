@@ -36,7 +36,6 @@ jobs:
         run: |
           set -euo pipefail
           echo "REGISTRY_SYNTASSO_TOKEN length: ${#REGISTRY_SYNTASSO_TOKEN}"
-          echo "REGISTRY_SYNTASSO_TOKEN sha256: $(printf %s "$REGISTRY_SYNTASSO_TOKEN" | shasum -a 256 | cut -d' ' -f1)"
           set -x
           echo "Inspect manifest (registry.syntasso.io):"
           docker buildx imagetools inspect registry.syntasso.io/syntasso/ske-platform:${{ env.LATEST_PRE_RELEASE_TAG }} || true
