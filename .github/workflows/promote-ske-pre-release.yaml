@@ -28,6 +28,14 @@ jobs:
           echo "S3_LATEST_RELEASE_DIR=$s3_latest_release_dir" >> "$GITHUB_ENV"
         env:
           GH_TOKEN: ${{ secrets.ENTERPRISE_KRATIX_GH_TOKEN }}
+      - name: Install Docker CLI (pinned)
+        run: |
+          set -euo pipefail
+          curl -fsSL https://download.docker.com/linux/static/stable/x86_64/docker-29.0.1.tgz -o /tmp/docker.tgz
+          tar -xzf /tmp/docker.tgz -C /tmp
+          sudo install -m 0755 /tmp/docker/docker /usr/local/bin/docker
+          sudo ln -sf /usr/local/bin/docker /usr/bin/docker
+          docker --version
       - name: Login to ghcr
         run: |
           echo "${{ secrets.GHCR_TOKEN }}" | docker login --username syntassodev --password-stdin ghcr.io
