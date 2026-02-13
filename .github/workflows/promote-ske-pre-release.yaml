@@ -31,7 +31,7 @@ jobs:
       - name: Login to ghcr
         run: |
           echo "${{ secrets.GHCR_TOKEN }}" | docker login --username syntassodev --password-stdin ghcr.io
-          echo "${{ secrets.GHCR_TOKEN }}" | docker login --username syntassodev --password-stdin registry.syntasso.io
+          echo "${{ secrets.REGISTRY_SYNTASSO_TOKEN }}" | docker login --username syntassodev --password-stdin registry.syntasso.io
       - name: Debug registry.syntasso.io access
         run: |
           set -x
@@ -46,7 +46,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y skopeo
           echo "${{ secrets.GHCR_TOKEN }}" | skopeo login -u syntassodev --password-stdin ghcr.io --debug || true
-          echo "${{ secrets.GHCR_TOKEN }}" | skopeo login -u syntassodev --password-stdin registry.syntasso.io --debug || true
+          echo "${{ secrets.REGISTRY_SYNTASSO_TOKEN }}" | skopeo login -u syntassodev --password-stdin registry.syntasso.io --debug || true
       - name: Verify SKE release does not exist
         env:
           GH_TOKEN: ${{ secrets.ENTERPRISE_KRATIX_GH_TOKEN }}

@@ -36,7 +36,7 @@ jobs:
       - name: Login to ghcr
         run: |
           echo "${{ secrets.GHCR_TOKEN }}" | docker login --username syntassodev --password-stdin ghcr.io
-          echo "${{ secrets.GHCR_TOKEN }}" | docker login --username syntassodev --password-stdin registry.syntasso.io
+          echo "${{ secrets.REGISTRY_SYNTASSO_TOKEN }}" | docker login --username syntassodev --password-stdin registry.syntasso.io
       - name: Build and push SKE at next RC
         env:
           GH_TOKEN: ${{ secrets.ENTERPRISE_KRATIX_GH_TOKEN }}
