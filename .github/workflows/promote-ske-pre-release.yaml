@@ -75,7 +75,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.ENTERPRISE_KRATIX_GH_TOKEN }}
         run: |
-          ./scripts/retag-ske-artifacts-to-full-release
+          DOCKER_API_VERSION=1.52 PATH="/usr/local/bin:${PATH}" ./scripts/retag-ske-artifacts-to-full-release
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
