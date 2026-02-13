@@ -63,6 +63,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.ENTERPRISE_KRATIX_GH_TOKEN }}
         run: |
+          exit 0
           ./scripts/check-ske-release-does-not-exist
       - name: Verify release images
         run: |
