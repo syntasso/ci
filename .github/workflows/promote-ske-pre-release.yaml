@@ -41,6 +41,12 @@ jobs:
           docker pull --platform linux/amd64 registry.syntasso.io/syntasso/ske-platform:${{ env.LATEST_PRE_RELEASE_TAG }} || true
           echo "Pull linux/arm64 (registry.syntasso.io):"
           docker pull --platform linux/arm64 registry.syntasso.io/syntasso/ske-platform:${{ env.LATEST_PRE_RELEASE_TAG }} || true
+      - name: Debug skopeo login
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y skopeo
+          echo "${{ secrets.GHCR_TOKEN }}" | skopeo login -u syntassodev --password-stdin ghcr.io --debug || true
+          echo "${{ secrets.GHCR_TOKEN }}" | skopeo login -u syntassodev --password-stdin registry.syntasso.io --debug || true
       - name: Verify SKE release does not exist
         env:
           GH_TOKEN: ${{ secrets.ENTERPRISE_KRATIX_GH_TOKEN }}
