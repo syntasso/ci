@@ -10,6 +10,9 @@ env:
 jobs:
   promote-pre-release:
     runs-on: ubuntu-latest
+    env:
+      DOCKER_API_VERSION: "1.52"
+      PATH: /usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin
     steps:
       - name: Check out enterprise kratix
         uses: actions/checkout@v4
@@ -75,7 +78,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.ENTERPRISE_KRATIX_GH_TOKEN }}
         run: |
-          DOCKER_API_VERSION=1.52 PATH="/usr/local/bin:${PATH}" ./scripts/retag-ske-artifacts-to-full-release
+          ./scripts/retag-ske-artifacts-to-full-release
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
