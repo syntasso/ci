@@ -174,9 +174,12 @@ jobs:
       fail-fast: false
       matrix:
         flags:
-          - name: default
+          - name: bucket
             env:
-
+              WORKER_STATESTORE_TYPE: "BucketStateStore"
+          - name: git
+            env:
+              WORKER_STATESTORE_TYPE: "GitStateStore"
           - name: ff-promise-upgrade
             env:
               UPGRADE_ENABLED: "true"
@@ -189,6 +192,8 @@ jobs:
       - name: set conditional env vars
         run: |
           echo "UPGRADE_ENABLED: $UPGRADE_ENABLED"; if [ "${{ matrix.flags.env.UPGRADE_ENABLED }}" == "true" ]; then echo "UPGRADE_ENABLED=true" >> "${GITHUB_ENV}"; fi
+
+          echo "WORKER_STATESTORE_TYPE=$WORKER_STATESTORE_TYPE" >> "${GITHUB_ENV}"
 
       - name: Checkout ci repository
         uses: actions/checkout@v4
