@@ -28,6 +28,13 @@ jobs:
         with:
           go-version: 1.24
           check-latest: true
+      - name: Snyk golang scan on kratix
+        if: ${{ !inputs.skip-security-scan }}
+        uses: snyk/actions/golang@master
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          args: --severity-threshold=high
       - name: Install Docker CLI (pinned)
         run: |
           set -euo pipefail
@@ -40,14 +47,6 @@ jobs:
           echo "/usr/local/bin" >> "$GITHUB_PATH"
           hash -r
           docker --version
-      - name: Snyk golang scan on kratix
-        if: ${{ !inputs.skip-security-scan }}
-        uses: snyk/actions/golang@master
-        env:
-          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-        with:
-          args: --severity-threshold=high
-
       - name: Login to ghcr
         run: |
           echo "${{ secrets.GHCR_TOKEN }}" | docker login --username syntassodev --password-stdin ghcr.io
