@@ -12,6 +12,9 @@ on:
 jobs:
   create-pre-release:
     runs-on: ubuntu-latest
+    env:
+      DOCKER_API_VERSION: "1.52"
+      PATH: /usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin
     steps:
       - name: Check out enterprise kratix
         uses: actions/checkout@v4
@@ -76,6 +79,8 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
       - name: Create Github release and upload artifacts to s3
         run: |
+          export PATH="/usr/local/bin:${PATH}"
+          export DOCKER_API_VERSION="1.52"
           TAG=${NEW_TAG} ./scripts/create-release
         env:
           GH_TOKEN: ${{ secrets.ENTERPRISE_KRATIX_GH_TOKEN }}
