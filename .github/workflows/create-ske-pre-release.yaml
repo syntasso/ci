@@ -12,9 +12,6 @@ on:
 jobs:
   create-pre-release:
     runs-on: ubuntu-latest
-    env:
-      DOCKER_API_VERSION: "1.52"
-      PATH: /usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin
     steps:
       - name: Check out enterprise kratix
         uses: actions/checkout@v4
