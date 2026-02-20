@@ -49,6 +49,8 @@ jobs:
           hash -r
           docker --version
       - name: Login to ghcr
+        env:
+          DOCKER_API_VERSION: "1.48"
         run: |
           echo "${{ secrets.GHCR_TOKEN }}" | docker login --username syntassodev --password-stdin ghcr.io
       - name: Build and push SKE at next RC
