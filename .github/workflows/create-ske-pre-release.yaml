@@ -46,7 +46,6 @@ jobs:
           sudo ln -sf /usr/local/bin/docker /usr/bin/docker
           rm /tmp/docker.tgz
           echo "/usr/local/bin" >> "$GITHUB_PATH"
-          echo "DOCKER_API_VERSION=1.52" >> "$GITHUB_ENV"
           hash -r
           docker --version
       - name: Build and push SKE at next RC
