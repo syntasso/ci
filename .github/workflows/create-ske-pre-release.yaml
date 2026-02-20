@@ -32,6 +32,7 @@ jobs:
         uses: snyk/actions/golang@master
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+          DOCKER_API_VERSION: "1.48"
         with:
           args: --severity-threshold=high
       - name: Install Docker CLI (pinned)
