@@ -12,8 +12,6 @@ on:
 jobs:
   create-pre-release:
     runs-on: ubuntu-latest
-    env:
-      DOCKER_API_VERSION: "1.52"
     steps:
       - name: Check out enterprise kratix
         uses: actions/checkout@v4
@@ -35,6 +33,9 @@ jobs:
           DOCKER_API_VERSION: "1.48"
         with:
           args: --severity-threshold=high
+      - name: Login to ghcr
+        run: |
+          echo "${{ secrets.GHCR_TOKEN }}" | docker login --username syntassodev --password-stdin ghcr.io
       - name: Install Docker CLI (pinned)
         run: |
           set -euo pipefail
@@ -48,11 +49,6 @@ jobs:
           echo "DOCKER_API_VERSION=1.52" >> "$GITHUB_ENV"
           hash -r
           docker --version
-      - name: Login to ghcr
-        env:
-          DOCKER_API_VERSION: "1.48"
-        run: |
-          echo "${{ secrets.GHCR_TOKEN }}" | docker login --username syntassodev --password-stdin ghcr.io
       - name: Build and push SKE at next RC
         env:
           GH_TOKEN: ${{ secrets.ENTERPRISE_KRATIX_GH_TOKEN }}
