@@ -38,29 +38,19 @@ runs:
       run: |
         set -euo pipefail
 
-        if [[ "${{ inputs.push }}" == "true" && "${{ inputs.load }}" == "true" ]]; then
-          echo "Only one of push or load can be true" >&2
-          exit 1
-        fi
-
-        if docker buildx inspect "${{ inputs.builder }}" >/dev/null 2>&1; then
-          docker buildx use "${{ inputs.builder }}"
-        else
-          docker buildx create --name "${{ inputs.builder }}" --use
-        fi
-
-        tags=("-t" "${{ inputs.tag }}")
+        extra_args=()
         if [[ -n "${{ inputs.extra_tags }}" ]]; then
           for t in ${{ inputs.extra_tags }}; do
-            tags+=("-t" "$t")
+            extra_args+=(--extra-tag "$t")
           done
         fi
 
-        args=(--builder "${{ inputs.builder }}" --platform "${{ inputs.platforms }}" --file "${{ inputs.dockerfile }}")
-        if [[ "${{ inputs.push }}" == "true" ]]; then
-          args+=(--push)
-        elif [[ "${{ inputs.load }}" == "true" ]]; then
-          args+=(--load)
-        fi
-
-        docker buildx build "${args[@]}" "${tags[@]}" "${{ inputs.context }}"
+        "$(dirname "$0")/../../scripts/docker-build.sh" \
+          --tag "${{ inputs.tag }}" \
+          --dockerfile "${{ inputs.dockerfile }}" \
+          --context "${{ inputs.context }}" \
+          --platforms "${{ inputs.platforms }}" \
+          --builder "${{ inputs.builder }}" \
+          --push "${{ inputs.push }}" \
+          --load "${{ inputs.load }}" \
+          "${extra_args[@]}"
