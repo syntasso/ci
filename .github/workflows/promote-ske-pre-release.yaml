@@ -10,9 +10,6 @@ env:
 jobs:
   promote-pre-release:
     runs-on: ubuntu-latest
-    env:
-      DOCKER_API_VERSION: "1.52"
-      PATH: /usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin
     steps:
       - name: Check out enterprise kratix
         uses: actions/checkout@v4
@@ -31,18 +28,10 @@ jobs:
           echo "S3_LATEST_RELEASE_DIR=$s3_latest_release_dir" >> "$GITHUB_ENV"
         env:
           GH_TOKEN: ${{ secrets.ENTERPRISE_KRATIX_GH_TOKEN }}
-      - name: Install Docker CLI (pinned)
-        run: |
-          set -euo pipefail
-          docker_version="29.0.1"
-          curl -fsSL "https://download.docker.com/linux/static/stable/x86_64/docker-${docker_version}.tgz" -o /tmp/docker.tgz
-          sudo tar -xzf /tmp/docker.tgz -C /usr/local/bin --strip-components=1 docker/docker
-          sudo chmod +x /usr/local/bin/docker
-          sudo ln -sf /usr/local/bin/docker /usr/bin/docker
-          rm /tmp/docker.tgz
-          echo "/usr/local/bin" >> "$GITHUB_PATH"
-          hash -r
-          docker --version
+      - name: Set up Docker (pinned)
+        uses: docker/setup-docker-action@v4
+        with:
+          version: 29.1.5
       - name: Login to ghcr
         run: |
           echo "${{ secrets.GHCR_TOKEN }}" | docker login --username syntassodev --password-stdin ghcr.io
