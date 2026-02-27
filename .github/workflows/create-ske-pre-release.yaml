@@ -82,6 +82,7 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
       - name: Create Github release and upload artifacts to s3
         run: |
+          curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin
           export PATH="/usr/local/bin:${PATH}"
           TAG=${NEW_TAG} ./scripts/create-release
         env:
