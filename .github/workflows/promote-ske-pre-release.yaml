@@ -35,11 +35,38 @@ jobs:
       - name: Login to ghcr
         run: |
           echo "${{ secrets.GHCR_TOKEN }}" | docker login --username syntassodev --password-stdin ghcr.io
-      - name: Verify SKE release does not exist
+      - name: Check release state
         env:
           GH_TOKEN: ${{ secrets.ENTERPRISE_KRATIX_GH_TOKEN }}
         run: |
-          ./scripts/check-ske-release-does-not-exist
+          set -euo pipefail
+          echo "Checking release ${LATEST_RELEASE_TAG} state"
+
+          if gh release view "${LATEST_RELEASE_TAG}" >/dev/null 2>&1; then
+            echo "Release ${LATEST_RELEASE_TAG} already exists; refusing to continue."
+            exit 1
+          fi
+
+          platform_exists=0
+          installer_exists=0
+
+          if docker buildx imagetools inspect "${SKE_PLATFORM_IMG}:${LATEST_RELEASE_TAG}" >/dev/null 2>&1; then
+            platform_exists=1
+          fi
+          if docker buildx imagetools inspect "${SKE_QUICK_START_INSTALLER_IMG}:${LATEST_RELEASE_TAG}" >/dev/null 2>&1; then
+            installer_exists=1
+          fi
+
+          if [[ "${platform_exists}" -eq 1 && "${installer_exists}" -eq 1 ]]; then
+            echo "Release images already exist for ${LATEST_RELEASE_TAG}; skipping retag."
+            echo "SKIP_RETAG=true" >> "$GITHUB_ENV"
+          elif [[ "${platform_exists}" -eq 0 && "${installer_exists}" -eq 0 ]]; then
+            echo "Release images do not exist yet; retag is required."
+            echo "SKIP_RETAG=false" >> "$GITHUB_ENV"
+          else
+            echo "Partial image state detected for ${LATEST_RELEASE_TAG}; refusing to continue."
+            exit 1
+          fi
       - name: Verify release images
         run: |
           ./scripts/verify-images ${{ env.LATEST_PRE_RELEASE_TAG }}
@@ -49,7 +76,15 @@ jobs:
       - name: Install syft
         run: |
           curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin
+      - name: Prepare release artifacts (skip retag path)
+        if: env.SKIP_RETAG == 'true'
+        run: |
+          gh release download --repo syntasso/enterprise-kratix "$LATEST_PRE_RELEASE_TAG" \
+            --pattern ske-distribution.yaml --pattern ske-quick-start-installer.yaml
+          sed -i "s/${LATEST_PRE_RELEASE_TAG}/${LATEST_RELEASE_TAG}/g" ske-distribution.yaml
+          TAG="${LATEST_RELEASE_TAG}" make sbom
       - name: Re-tag SKE artifacts to full release
+        if: env.SKIP_RETAG != 'true'
         env:
           GH_TOKEN: ${{ secrets.ENTERPRISE_KRATIX_GH_TOKEN }}
         run: |
