@@ -113,6 +113,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.ENTERPRISE_KRATIX_GH_TOKEN }}
           SKE_LICENSE_TOKEN: ${{ secrets.SKE_LICENSE_TOKEN }}
+          MAKE_DIST: true
 
   ske-backstage-test:
     runs-on: ubuntu-latest
