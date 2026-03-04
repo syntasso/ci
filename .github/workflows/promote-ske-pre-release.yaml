@@ -46,6 +46,9 @@ jobs:
       - name: Verify SBOM artifacts
         run: |
           ./scripts/verify-sboms ${{ env.LATEST_PRE_RELEASE_TAG }}
+      - name: Install syft
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin
       - name: Re-tag SKE artifacts to full release
         env:
           GH_TOKEN: ${{ secrets.ENTERPRISE_KRATIX_GH_TOKEN }}
