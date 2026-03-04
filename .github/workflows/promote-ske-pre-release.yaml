@@ -78,6 +78,8 @@ jobs:
           curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin
       - name: Prepare release artifacts (skip retag path)
         if: env.SKIP_RETAG == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.ENTERPRISE_KRATIX_GH_TOKEN }}
         run: |
           gh release download --repo syntasso/enterprise-kratix "$LATEST_PRE_RELEASE_TAG" \
             --pattern ske-distribution.yaml --pattern ske-quick-start-installer.yaml
