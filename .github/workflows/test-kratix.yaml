@@ -43,9 +43,9 @@ jobs:
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v9
         with:
-          version: v2.10
-          args: --config=${{ github.workspace }}/kratix/.golangci-required.yml
+          version: v2.11
           working-directory: kratix
+          args: --config=${{ github.workspace }}/kratix/.golangci-required.yml
       - name: Unit Tests
         run: |
           cd kratix
