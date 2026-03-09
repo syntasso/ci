@@ -48,7 +48,7 @@ jobs:
         uses: golangci/golangci-lint-action@v9
         with:
           version: v2.10
-          args: --config=.golangci-required.yml
+          args: --config=./kratix/.golangci-required.yml
           working-directory: kratix
 
   build-kratix-image:
