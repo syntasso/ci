@@ -1,0 +1,56 @@
+name: Docker Build (buildx)
+description: Build images with docker buildx
+inputs:
+  tag:
+    description: Primary image tag
+    required: true
+  dockerfile:
+    description: Dockerfile path
+    required: true
+  context:
+    description: Build context path
+    required: true
+  platforms:
+    description: Target platforms
+    required: false
+    default: linux/amd64,linux/arm64
+  builder:
+    description: Buildx builder name
+    required: false
+    default: ci-image-builder
+  push:
+    description: Push images
+    required: false
+    default: "true"
+  load:
+    description: Load image into local docker
+    required: false
+    default: "false"
+  extra_tags:
+    description: Additional tags (space separated)
+    required: false
+    default: ""
+runs:
+  using: composite
+  steps:
+    - name: Build image
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        extra_args=()
+        if [[ -n "${{ inputs.extra_tags }}" ]]; then
+          for t in ${{ inputs.extra_tags }}; do
+            extra_args+=(--extra-tag "$t")
+          done
+        fi
+
+        "$(dirname "$0")/../../scripts/docker-build.sh" \
+          --tag "${{ inputs.tag }}" \
+          --dockerfile "${{ inputs.dockerfile }}" \
+          --context "${{ inputs.context }}" \
+          --platforms "${{ inputs.platforms }}" \
+          --builder "${{ inputs.builder }}" \
+          --push "${{ inputs.push }}" \
+          --load "${{ inputs.load }}" \
+          "${extra_args[@]}"
