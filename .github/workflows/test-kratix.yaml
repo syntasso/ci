@@ -44,16 +44,12 @@ jobs:
         run: |
           cd kratix
           make test
-      - name: Lint
-        run: |
-          cd kratix
-          curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s v1.64.8
-          ./bin/golangci-lint run --config=.golangci-required.yml
-      - name: Go vulnerability check
-        run: |
-          cd kratix
-          go install golang.org/x/vuln/cmd/govulncheck@latest
-          govulncheck ./...
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v9
+        with:
+          version: v2.10
+          args: --config=.golangci-required.yml
+          working-directory: kratix
 
   build-kratix-image:
     runs-on: ubuntu-latest
