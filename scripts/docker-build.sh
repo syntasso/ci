@@ -6,8 +6,8 @@ tag=""
 dockerfile=""
 context=""
 platforms="linux/amd64,linux/arm64"
-builder="ci-image-builder"
-push="true"
+builder="default-kratix-image-builder"
+push="false"
 load="false"
 extra_tags=()
 
@@ -52,9 +52,11 @@ else
 fi
 
 args=(--builder "$builder" --platform "$platforms" --file "$dockerfile" -t "$tag")
-for t in "${extra_tags[@]}"; do
-  args+=(-t "$t")
-done
+if ((${#extra_tags[@]} > 0)); then
+  for t in "${extra_tags[@]}"; do
+    args+=(-t "$t")
+  done
+fi
 
 if [[ "$push" == "true" ]]; then
   args+=(--push)
