@@ -40,16 +40,16 @@ jobs:
           ref: ${{ github.event.inputs.sha }}
           path: kratix
           ssh_session: ${{ github.event.inputs.ssh_session }}
-      - name: Unit Tests
-        run: |
-          cd kratix
-          make test
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v9
         with:
           version: v2.10
           args: --config=./kratix/.golangci-required.yml
           working-directory: kratix
+      - name: Unit Tests
+        run: |
+          cd kratix
+          make test
 
   build-kratix-image:
     runs-on: ubuntu-latest
