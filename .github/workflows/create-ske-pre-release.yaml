@@ -25,6 +25,10 @@ jobs:
         with:
           go-version: 1.26
           check-latest: true
+      - name: Set up Docker (pinned)
+        uses: docker/setup-docker-action@v4
+        with:
+          version: 29.1.5
       - name: Snyk golang scan on kratix
         if: ${{ !inputs.skip-security-scan }}
         uses: snyk/actions/golang@master
@@ -34,20 +38,11 @@ jobs:
         with:
           args: --severity-threshold=high
       - name: Login to ghcr
-        run: |
-          echo "${{ secrets.GHCR_TOKEN }}" | docker login --username syntassodev --password-stdin ghcr.io
-      - name: Install Docker CLI (pinned)
-        run: |
-          set -euo pipefail
-          docker_version="29.0.1"
-          curl -fsSL "https://download.docker.com/linux/static/stable/x86_64/docker-${docker_version}.tgz" -o /tmp/docker.tgz
-          sudo tar -xzf /tmp/docker.tgz -C /usr/local/bin --strip-components=1 docker/docker
-          sudo chmod +x /usr/local/bin/docker
-          sudo ln -sf /usr/local/bin/docker /usr/bin/docker
-          rm /tmp/docker.tgz
-          echo "/usr/local/bin" >> "$GITHUB_PATH"
-          hash -r
-          docker --version
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: syntassodev
+          password: ${{ secrets.GHCR_TOKEN }}
       - name: Build and push SKE at next RC
         env:
           GH_TOKEN: ${{ secrets.ENTERPRISE_KRATIX_GH_TOKEN }}
