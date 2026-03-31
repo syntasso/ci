@@ -25,10 +25,10 @@ jobs:
         run: |
           terraform init -upgrade
           terraform output --json > credentials.json
-          echo "export ASSUME_CI_ECR_READ_WRITE_ROLE_ARN=$(yq eval '.assume_ci_ecr_read_write_role_arn.value' credentials.json --output-format=yaml)" >> "$GITHUB_ENV"
-          echo "export CI_USER_ACCESS_KEY_ID=$(yq eval '.ci_user_access_key_id.value' credentials.json --output-format=yaml)" >> "$GITHUB_ENV"
-          echo "export CI_USER_SECRET_ACCESS_KEY=$(yq eval '.ci_user_secret_access_key.value' credentials.json --output-format=yaml)" >> "$GITHUB_ENV"
-          echo "export REGION=$(yq eval '.aws_region.value' credentials.json --output-format=yaml)" >> "$GITHUB_ENV"
+          echo "ASSUME_CI_ECR_READ_WRITE_ROLE_ARN=$(yq eval '.assume_ci_ecr_read_write_role_arn.value' credentials.json --output-format=yaml)" >> "$GITHUB_ENV"
+          echo "CI_USER_ACCESS_KEY_ID=$(yq eval '.ci_user_access_key_id.value' credentials.json --output-format=yaml)" >> "$GITHUB_ENV"
+          echo "CI_USER_SECRET_ACCESS_KEY=$(yq eval '.ci_user_secret_access_key.value' credentials.json --output-format=yaml)" >> "$GITHUB_ENV"
+          echo "REGION=$(yq eval '.aws_region.value' credentials.json --output-format=yaml)" >> "$GITHUB_ENV"
         env:
           TF_TOKEN_app_terraform_io: ${{ secrets.TF_TOKEN_app_terraform_io }}
       - name: Configure AWS Credentials
@@ -48,9 +48,9 @@ jobs:
 
           docker login --username AWS -p $(aws ecr get-login-password --region us-east-1) 001004308489.dkr.ecr.us-east-1.amazonaws.com
 
-          echo "export latest_wolfi=$(docker pull cgr.dev/chainguard/wolfi-base:latest 2> /dev/null | grep -o 'sha256:[a-fA-F0-9]\+' | cut -d':' -f2)" >> "$GITHUB_ENV"
-          echo "export latest_static=$(docker pull cgr.dev/chainguard/static:latest 2> /dev/null | grep -o 'sha256:[a-fA-F0-9]\+' | cut -d':' -f2)" >> "$GITHUB_ENV"
-          echo "export latest_gitbase=$(docker pull cgr.dev/chainguard/git:latest 2> /dev/null | grep -o 'sha256:[a-fA-F0-9]\+' | cut -d':' -f2)" >> "$GITHUB_ENV"
+          echo "latest_wolfi=$(docker pull cgr.dev/chainguard/wolfi-base:latest 2> /dev/null | grep -o 'sha256:[a-fA-F0-9]\+' | cut -d':' -f2)" >> "$GITHUB_ENV"
+          echo "latest_static=$(docker pull cgr.dev/chainguard/static:latest 2> /dev/null | grep -o 'sha256:[a-fA-F0-9]\+' | cut -d':' -f2)" >> "$GITHUB_ENV"
+          echo "latest_gitbase=$(docker pull cgr.dev/chainguard/git:latest 2> /dev/null | grep -o 'sha256:[a-fA-F0-9]\+' | cut -d':' -f2)" >> "$GITHUB_ENV"
           source $BASH_ENV
           ./scripts/mirror-chainguard-images.bash $latest_wolfi $latest_static $latest_gitbase
           echo "Docker build and push complete"
