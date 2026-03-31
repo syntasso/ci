@@ -51,7 +51,6 @@ jobs:
           echo "latest_wolfi=$(docker pull cgr.dev/chainguard/wolfi-base:latest 2> /dev/null | grep -o 'sha256:[a-fA-F0-9]\+' | cut -d':' -f2)" >> "$GITHUB_ENV"
           echo "latest_static=$(docker pull cgr.dev/chainguard/static:latest 2> /dev/null | grep -o 'sha256:[a-fA-F0-9]\+' | cut -d':' -f2)" >> "$GITHUB_ENV"
           echo "latest_gitbase=$(docker pull cgr.dev/chainguard/git:latest 2> /dev/null | grep -o 'sha256:[a-fA-F0-9]\+' | cut -d':' -f2)" >> "$GITHUB_ENV"
-          source $BASH_ENV
           ./scripts/mirror-chainguard-images.bash $latest_wolfi $latest_static $latest_gitbase
           echo "Docker build and push complete"
       - name: Bump SKE dockerfile base images to latest Chainguard SHA
