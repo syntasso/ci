@@ -1,0 +1,107 @@
+name: Bump Chainguard Images
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 12 * * *"
+
+jobs:
+  update-chainguard-images:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout ci repository
+        uses: actions/checkout@v4
+        with:
+          repository: syntasso/ci
+      - name: Setup Common Environment
+        uses: ./.github/actions/setup-common
+        with:
+          repository: syntasso/enterprise-kratix
+          path: enterprise-kratix
+          ssh_key: ${{ secrets.ENTERPRISE_KRATIX_DEPLOY_KEY_READ_PUSH }}
+          submodules: 'false'
+          ssh_session: ${{ github.event.inputs.ssh_session }}
+      - uses: hashicorp/setup-terraform@v4
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.ENTERPRISE_KRATIX_TEST_AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.ENTERPRISE_KRATIX_TEST_AWS_SECRET_ACCESS_KEY }}
+          aws-region: eu-west-2
+          role-to-assume: ${{ secrets.EKS_KUBECTL_ADMIN_ROLE_ARN }}
+          role-session-name: chainguard
+          role-skip-session-tagging: true
+      - name: Mirror latest Chainguard SHAs to ECR
+        working-directory: enterprise-kratix
+        run: |
+          echo "Validating the credentials have been properly set, this should echo 5 characters:"
+          echo $AWS_SESSION_TOKEN | cut -c1-5
+
+          docker login --username AWS -p $(aws ecr get-login-password --region us-east-1) 001004308489.dkr.ecr.us-east-1.amazonaws.com
+
+          echo "export latest_wolfi=$(docker pull cgr.dev/chainguard/wolfi-base:latest 2> /dev/null | grep -o 'sha256:[a-fA-F0-9]\+' | cut -d':' -f2)" >> $BASH_ENV
+          echo "export latest_static=$(docker pull cgr.dev/chainguard/static:latest 2> /dev/null | grep -o 'sha256:[a-fA-F0-9]\+' | cut -d':' -f2)" >> $BASH_ENV
+          echo "export latest_gitbase=$(docker pull cgr.dev/chainguard/git:latest 2> /dev/null | grep -o 'sha256:[a-fA-F0-9]\+' | cut -d':' -f2)" >> $BASH_ENV
+          source $BASH_ENV
+          ./scripts/mirror-chainguard-images.bash $latest_wolfi $latest_static $latest_gitbase
+          echo "Docker build and push complete"
+      -   name: Bump SKE dockerfile base images to latest Chainguard SHA
+          working-directory: enterprise-kratix
+          run: |
+            ./scripts/bump-dockerfile-to-latest-chainguard-sha $latest_wolfi $latest_static $latest_gitbase Dockerfile.ske-platform
+            ./scripts/bump-dockerfile-to-latest-chainguard-sha $latest_wolfi $latest_static $latest_gitbase Dockerfile.ske-quick-start-installer
+            ./scripts/bump-dockerfile-to-latest-chainguard-sha $latest_wolfi $latest_static $latest_gitbase backstage-controller/Dockerfile
+            ./scripts/bump-dockerfile-to-latest-chainguard-sha $latest_wolfi $latest_static $latest_gitbase headlamp-ske/Dockerfile
+            ./scripts/bump-dockerfile-to-latest-chainguard-sha $latest_wolfi $latest_static $latest_gitbase k8s-health-agent/Dockerfile
+            ./scripts/bump-dockerfile-to-latest-chainguard-sha $latest_wolfi $latest_static $latest_gitbase ske-cortex-controller/Dockerfile
+            ./scripts/bump-dockerfile-to-latest-chainguard-sha $latest_wolfi $latest_static $latest_gitbase ske-operator/Dockerfile
+
+            echo "Updated Dockerfiles to latest sha"
+            changed_files=$(git status --porcelain | awk '{print $2}' | grep -E '(^|/)Dockerfile(\..+)?$' || true)
+
+            echo "checking for local diffs..."
+            if [[ -z "$changed_files" ]]; then
+              echo "No local changes to commit.""
+              exit 0
+            fi
+
+            echo "$changed_files" | while IFS= read -r file; do
+              git add "$file"
+            done
+
+            echo "Changes made, committing and pushing..."
+            git commit -m "feat: updating Chainguard SHA"
+
+            git stash
+            git pull origin main --rebase
+            git push origin main
+      - name: Checkout ske-image repository
+        uses: actions/checkout@v4
+        with:
+          repository: syntasso/ske-images
+          ssh-key: ${{ secrets.SKE_IMAGES_DEPLOY_KEY_READ_PUSH }}
+      - name: Update SKE images to latest Chainguard SHA
+        working-directory: ske-images
+        command: |
+          image_dirs=$(find . -mindepth 1 -maxdepth 1 -type d | cut -c 3- | grep -v '^\.')
+          for image_dir in $image_dirs; do
+            if [ ! -f "${image_dir}/Dockerfile" ]; then
+              continue
+            fi
+            pushd $image_dir
+              ${{ github.workspace }}/enterpise-kratix/scripts/bump-dockerfile-to-latest-chainguard-sha $latest_wolfi $latest_static $latest_gitbase Dockerfile
+            popd
+          done
+
+          echo "Updated Dockerfiles to latest sha"
+
+          echo "Checking for local diffs..."
+          if git diff --quiet -- '*/Dockerfile'; then
+              echo "No local changes to commit."
+              exit 0
+          fi
+
+          echo "Changes made, committing and pushing..."
+          git add -- '*/Dockerfile'
+          git commit -m "feat: updating Chainguard SHA in SKE images"
+          git push origin main
