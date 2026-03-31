@@ -21,8 +21,8 @@ jobs:
           ssh-key: ${{ secrets.ENTERPRISE_KRATIX_DEPLOY_KEY_READ_PUSH }}
       - uses: hashicorp/setup-terraform@v4
       - name: Fetch terraform outputs and place into env variables
+        working-directory: enterprise-kratix/terraform
         run: |
-          cd ~/repo/terraform/
           terraform init -upgrade
           terraform output --json > credentials.json
           echo "export ASSUME_CI_ECR_READ_WRITE_ROLE_ARN=$(yq eval '.assume_ci_ecr_read_write_role_arn.value' credentials.json --output-format=yaml)" >> "$GITHUB_ENV"
