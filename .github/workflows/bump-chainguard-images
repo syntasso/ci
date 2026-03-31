@@ -45,35 +45,35 @@ jobs:
           source $BASH_ENV
           ./scripts/mirror-chainguard-images.bash $latest_wolfi $latest_static $latest_gitbase
           echo "Docker build and push complete"
-      -   name: Bump SKE dockerfile base images to latest Chainguard SHA
-          working-directory: enterprise-kratix
-          run: |
-            ./scripts/bump-dockerfile-to-latest-chainguard-sha $latest_wolfi $latest_static $latest_gitbase Dockerfile.ske-platform
-            ./scripts/bump-dockerfile-to-latest-chainguard-sha $latest_wolfi $latest_static $latest_gitbase Dockerfile.ske-quick-start-installer
-            ./scripts/bump-dockerfile-to-latest-chainguard-sha $latest_wolfi $latest_static $latest_gitbase backstage-controller/Dockerfile
-            ./scripts/bump-dockerfile-to-latest-chainguard-sha $latest_wolfi $latest_static $latest_gitbase headlamp-ske/Dockerfile
-            ./scripts/bump-dockerfile-to-latest-chainguard-sha $latest_wolfi $latest_static $latest_gitbase k8s-health-agent/Dockerfile
-            ./scripts/bump-dockerfile-to-latest-chainguard-sha $latest_wolfi $latest_static $latest_gitbase ske-cortex-controller/Dockerfile
-            ./scripts/bump-dockerfile-to-latest-chainguard-sha $latest_wolfi $latest_static $latest_gitbase ske-operator/Dockerfile
+      - name: Bump SKE dockerfile base images to latest Chainguard SHA
+        working-directory: enterprise-kratix
+        run: |
+          ./scripts/bump-dockerfile-to-latest-chainguard-sha $latest_wolfi $latest_static $latest_gitbase Dockerfile.ske-platform
+          ./scripts/bump-dockerfile-to-latest-chainguard-sha $latest_wolfi $latest_static $latest_gitbase Dockerfile.ske-quick-start-installer
+          ./scripts/bump-dockerfile-to-latest-chainguard-sha $latest_wolfi $latest_static $latest_gitbase backstage-controller/Dockerfile
+          ./scripts/bump-dockerfile-to-latest-chainguard-sha $latest_wolfi $latest_static $latest_gitbase headlamp-ske/Dockerfile
+          ./scripts/bump-dockerfile-to-latest-chainguard-sha $latest_wolfi $latest_static $latest_gitbase k8s-health-agent/Dockerfile
+          ./scripts/bump-dockerfile-to-latest-chainguard-sha $latest_wolfi $latest_static $latest_gitbase ske-cortex-controller/Dockerfile
+          ./scripts/bump-dockerfile-to-latest-chainguard-sha $latest_wolfi $latest_static $latest_gitbase ske-operator/Dockerfile
 
-            echo "Updated Dockerfiles to latest sha"
-            changed_files=$(git status --porcelain | awk '{print $2}' | grep -E '(^|/)Dockerfile(\..+)?$' || true)
+          echo "Updated Dockerfiles to latest sha"
+          changed_files=$(git status --porcelain | awk '{print $2}' | grep -E '(^|/)Dockerfile(\..+)?$' || true)
 
-            echo "checking for local diffs..."
-            if [[ -z "$changed_files" ]]; then
-              echo "No local changes to commit.""
-              exit 0
-            fi
+          echo "checking for local diffs..."
+          if [[ -z "$changed_files" ]]; then
+            echo "No local changes to commit.""
+            exit 0
+          fi
 
-            echo "$changed_files" | while IFS= read -r file; do
-              git add "$file"
-            done
+          echo "$changed_files" | while IFS= read -r file; do
+            git add "$file"
+          done
 
-            echo "Changes made, committing and pushing..."
-            git commit -m "feat: updating Chainguard SHA"
+          echo "Changes made, committing and pushing..."
+          git commit -m "feat: updating Chainguard SHA"
 
-            git stash
-            git pull origin main --rebase
+          git stash
+          git pull origin main --rebase
             git push origin main
       - name: Checkout ske-image repository
         uses: actions/checkout@v4
