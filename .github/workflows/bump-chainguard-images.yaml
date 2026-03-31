@@ -69,6 +69,9 @@ jobs:
           ./scripts/bump-dockerfile-to-latest-chainguard-sha $latest_wolfi $latest_static $latest_gitbase ske-cortex-controller/Dockerfile
           ./scripts/bump-dockerfile-to-latest-chainguard-sha $latest_wolfi $latest_static $latest_gitbase ske-operator/Dockerfile
 
+          git config user.name "syntassodev"
+          git config user.email "kratix@syntasso.io"
+
           echo "Updated Dockerfiles to latest sha"
           changed_files=$(git status --porcelain | awk '{print $2}' | grep -E '(^|/)Dockerfile(\..+)?$' || true)
 
@@ -106,6 +109,9 @@ jobs:
               ${{ github.workspace }}/enterprise-kratix/scripts/bump-dockerfile-to-latest-chainguard-sha $latest_wolfi $latest_static $latest_gitbase Dockerfile
             popd
           done
+
+          git config user.name "syntassodev"
+          git config user.email "kratix@syntasso.io"
 
           echo "Updated Dockerfiles to latest sha"
 
