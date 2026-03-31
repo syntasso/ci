@@ -39,9 +39,9 @@ jobs:
 
           docker login --username AWS -p $(aws ecr get-login-password --region us-east-1) 001004308489.dkr.ecr.us-east-1.amazonaws.com
 
-          echo "export latest_wolfi=$(docker pull cgr.dev/chainguard/wolfi-base:latest 2> /dev/null | grep -o 'sha256:[a-fA-F0-9]\+' | cut -d':' -f2)" >> $BASH_ENV
-          echo "export latest_static=$(docker pull cgr.dev/chainguard/static:latest 2> /dev/null | grep -o 'sha256:[a-fA-F0-9]\+' | cut -d':' -f2)" >> $BASH_ENV
-          echo "export latest_gitbase=$(docker pull cgr.dev/chainguard/git:latest 2> /dev/null | grep -o 'sha256:[a-fA-F0-9]\+' | cut -d':' -f2)" >> $BASH_ENV
+          echo "export latest_wolfi=$(docker pull cgr.dev/chainguard/wolfi-base:latest 2> /dev/null | grep -o 'sha256:[a-fA-F0-9]\+' | cut -d':' -f2)" >> "$GITHUB_ENV"
+          echo "export latest_static=$(docker pull cgr.dev/chainguard/static:latest 2> /dev/null | grep -o 'sha256:[a-fA-F0-9]\+' | cut -d':' -f2)" >> "$GITHUB_ENV"
+          echo "export latest_gitbase=$(docker pull cgr.dev/chainguard/git:latest 2> /dev/null | grep -o 'sha256:[a-fA-F0-9]\+' | cut -d':' -f2)" >> "$GITHUB_ENV"
           source $BASH_ENV
           ./scripts/mirror-chainguard-images.bash $latest_wolfi $latest_static $latest_gitbase
           echo "Docker build and push complete"
@@ -74,22 +74,23 @@ jobs:
 
           git stash
           git pull origin main --rebase
-            git push origin main
+          git push origin main
       - name: Checkout ske-image repository
         uses: actions/checkout@v4
         with:
           repository: syntasso/ske-images
           ssh-key: ${{ secrets.SKE_IMAGES_DEPLOY_KEY_READ_PUSH }}
+          path: ske-images
       - name: Update SKE images to latest Chainguard SHA
         working-directory: ske-images
-        command: |
+        run: |
           image_dirs=$(find . -mindepth 1 -maxdepth 1 -type d | cut -c 3- | grep -v '^\.')
           for image_dir in $image_dirs; do
             if [ ! -f "${image_dir}/Dockerfile" ]; then
               continue
             fi
             pushd $image_dir
-              ${{ github.workspace }}/enterpise-kratix/scripts/bump-dockerfile-to-latest-chainguard-sha $latest_wolfi $latest_static $latest_gitbase Dockerfile
+              ${{ github.workspace }}/enterprise-kratix/scripts/bump-dockerfile-to-latest-chainguard-sha $latest_wolfi $latest_static $latest_gitbase Dockerfile
             popd
           done
 
