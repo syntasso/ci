@@ -13,14 +13,12 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: syntasso/ci
-      - name: Setup Common Environment
-        uses: ./.github/actions/setup-common
+      - name: Checkout enterprise-kratix repository
+        uses: actions/checkout@v4
         with:
           repository: syntasso/enterprise-kratix
           path: enterprise-kratix
-          ssh_key: ${{ secrets.ENTERPRISE_KRATIX_DEPLOY_KEY_READ_PUSH }}
-          submodules: 'false'
-          ssh_session: ${{ github.event.inputs.ssh_session }}
+          ssh-key: ${{ secrets.ENTERPRISE_KRATIX_DEPLOY_KEY_READ_PUSH }}
       - uses: hashicorp/setup-terraform@v4
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
