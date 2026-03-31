@@ -20,13 +20,24 @@ jobs:
           path: enterprise-kratix
           ssh-key: ${{ secrets.ENTERPRISE_KRATIX_DEPLOY_KEY_READ_PUSH }}
       - uses: hashicorp/setup-terraform@v4
+      - name: Fetch terraform outputs and place into env variables
+        run: |
+          cd ~/repo/terraform/
+          terraform init -upgrade
+          terraform output --json > credentials.json
+          echo "export ASSUME_CI_ECR_READ_WRITE_ROLE_ARN=$(yq eval '.assume_ci_ecr_read_write_role_arn.value' credentials.json --output-format=yaml)" >> "$GITHUB_ENV"
+          echo "export CI_USER_ACCESS_KEY_ID=$(yq eval '.ci_user_access_key_id.value' credentials.json --output-format=yaml)" >> "$GITHUB_ENV"
+          echo "export CI_USER_SECRET_ACCESS_KEY=$(yq eval '.ci_user_secret_access_key.value' credentials.json --output-format=yaml)" >> "$GITHUB_ENV"
+          echo "export REGION=$(yq eval '.aws_region.value' credentials.json --output-format=yaml)" >> "$GITHUB_ENV"
+        env:
+          TF_TOKEN_app_terraform_io: ${{ secrets.TF_TOKEN_app_terraform_io }}
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.ENTERPRISE_KRATIX_TEST_AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.ENTERPRISE_KRATIX_TEST_AWS_SECRET_ACCESS_KEY }}
           aws-region: eu-west-2
-          role-to-assume: ${{ secrets.EKS_KUBECTL_ADMIN_ROLE_ARN }}
+          role-to-assume: ${{ env.ASSUME_CI_ECR_READ_WRITE_ROLE_ARN }}
           role-session-name: chainguard
           role-skip-session-tagging: true
       - name: Mirror latest Chainguard SHAs to ECR
