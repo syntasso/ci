@@ -74,7 +74,7 @@ jobs:
 
           echo "checking for local diffs..."
           if [[ -z "$changed_files" ]]; then
-            echo "No local changes to commit.""
+            echo "No local changes to commit."
             exit 0
           fi
 
