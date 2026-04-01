@@ -125,3 +125,37 @@ jobs:
           git add -- '*/Dockerfile'
           git commit -m "feat: updating Chainguard SHA in SKE images"
           git push origin main
+      - name: Checkout port-controller repository
+        uses: actions/checkout@v4
+        with:
+          repository: syntasso/ske-port-controller
+          ssh-key: ${{ secrets.PORT_CONTROLLER_READ_WRITE_KEY }}
+          path: port-controller
+      - name: Update Port Controller image to latest Chainguard SHA
+        working-directory: port-controller
+        run: |
+          dockerfile_path=ske-port-controller/Dockerfile
+          ${{ github.workspace }}/enterprise-kratix/scripts/bump-dockerfile-to-latest-chainguard-sha $latest_wolfi $latest_static $latest_gitbase $dockerfile_path
+
+          git config user.name "syntassodev"
+          git config user.email "kratix@syntasso.io"
+
+          echo "Updated Dockerfiles to latest sha"
+          changed_files=$(git status --porcelain | awk '{print $2}' | grep -E '(^|/)Dockerfile(\..+)?$' || true)
+
+          echo "checking for local diffs..."
+          if [[ -z "$changed_files" ]]; then
+            echo "No local changes to commit."
+            exit 0
+          fi
+
+          echo "$changed_files" | while IFS= read -r file; do
+            git add "$file"
+          done
+
+          echo "Changes made, committing and pushing..."
+          git commit -m "feat: updating Chainguard SHA"
+
+          git stash
+          git pull origin main --rebase
+          git push origin main
