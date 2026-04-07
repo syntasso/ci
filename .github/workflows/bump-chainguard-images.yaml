@@ -139,7 +139,7 @@ jobs:
         working-directory: port-controller
         run: |
           dockerfile_path=ske-port-controller/Dockerfile
-          ${{ github.workspace }}/enterprise-kratix/scripts/bump-dockerfile-to-latest-chainguard-sha $latest_wolfi $latest_static $latest_gitbase $latest_gitbase $latest_golang $latest_node $dockerfile_path
+          ${{ github.workspace }}/enterprise-kratix/scripts/bump-dockerfile-to-latest-chainguard-sha $latest_wolfi $latest_static $latest_gitbase $latest_golang $latest_node $dockerfile_path
 
           git config user.name "syntassodev"
           git config user.email "kratix@syntasso.io"
