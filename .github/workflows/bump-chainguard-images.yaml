@@ -110,7 +110,7 @@ jobs:
               continue
             fi
             pushd $image_dir
-              ${{ github.workspace }}/enterprise-kratix/scripts/bump-dockerfile-to-latest-chainguard-sha $latest_wolfi $latest_static $latest_gitbase Dockerfile
+              ${{ github.workspace }}/enterprise-kratix/scripts/bump-dockerfile-to-latest-chainguard-sha $latest_wolfi $latest_static $latest_gitbase $latest_golang $latest_node Dockerfile
             popd
           done
 
