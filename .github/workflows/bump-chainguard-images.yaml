@@ -72,6 +72,7 @@ jobs:
           ./scripts/bump-dockerfile-to-latest-chainguard-sha $latest_wolfi $latest_static $latest_gitbase $latest_golang $latest_node k8s-health-agent/Dockerfile
           ./scripts/bump-dockerfile-to-latest-chainguard-sha $latest_wolfi $latest_static $latest_gitbase $latest_golang $latest_node ske-cortex-controller/Dockerfile
           ./scripts/bump-dockerfile-to-latest-chainguard-sha $latest_wolfi $latest_static $latest_gitbase $latest_golang $latest_node ske-operator/Dockerfile
+          ./scripts/bump-dockerfile-to-latest-chainguard-sha $latest_wolfi $latest_static $latest_gitbase $latest_golang $latest_node ske-platform-image/Dockerfile
 
           git config user.name "syntassodev"
           git config user.email "kratix@syntasso.io"
