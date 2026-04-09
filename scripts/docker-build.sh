@@ -10,6 +10,7 @@ builder="default-kratix-image-builder"
 push="false"
 load="false"
 extra_tags=()
+build_args=()
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -29,6 +30,8 @@ while [[ $# -gt 0 ]]; do
       load="$2"; shift 2 ;;
     --extra-tag)
       extra_tags+=("$2"); shift 2 ;;
+    --build-arg)
+      build_args+=("--build-arg" "$2"); shift 2 ;;
     *)
       echo "Unknown argument: $1" >&2
       exit 1 ;;
@@ -56,6 +59,9 @@ if ((${#extra_tags[@]} > 0)); then
   for t in "${extra_tags[@]}"; do
     args+=(-t "$t")
   done
+fi
+if ((${#build_args[@]} > 0)); then
+  args+=("${build_args[@]}")
 fi
 
 if [[ "$push" == "true" ]]; then
