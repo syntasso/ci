@@ -1,0 +1,59 @@
+name: test-ske-backstage
+
+on:
+  workflow_dispatch:
+    inputs:
+      ssh_session:
+        type: boolean
+        description: 'Run the build with tmate debugging.'
+        required: false
+        default: false
+      sha:
+        description: 'Commit sha of Kratix'
+        required: false
+        type: string
+      ske_sha:
+        description: 'Commit sha of enterprise-kratix'
+        required: false
+        type: string
+
+jobs:
+  ske-backstage-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout ci repository
+        uses: actions/checkout@v4
+        with:
+          repository: syntasso/ci
+
+      - name: Setup Common Environment
+        uses: ./.github/actions/setup-common
+        with:
+          repository: syntasso/enterprise-kratix
+          ref: ${{ github.event.inputs.ske_sha }}
+          path: enterprise-kratix
+          ssh_key: ${{ secrets.ENTERPRISE_KRATIX_DEPLOY_KEY_READ_PUSH }}
+          submodules: 'true'
+          submodule_repository: syntasso/kratix
+          submodule_ref: ${{ github.event.inputs.sha }}
+          submodule_path: enterprise-kratix/read-only-kratix
+          tools_base_path: enterprise-kratix/read-only-kratix
+          ssh_session: ${{ github.event.inputs.ssh_session }}
+
+      - name: Setup Backstage Environment
+        uses: ./.github/actions/setup-backstage
+        with:
+          backstage_deploy_key: ${{ secrets.BACKSTAGE_REPO_DEPLOY_KEY }}
+
+      - name: Backstage tests
+        env:
+          GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_RELEASE_CREATOR_TOKEN }}
+          DOCKER_PRUNE: "true"
+        run: |
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /opt/ghc
+          sudo rm -rf "/usr/local/share/boost"
+          sudo rm -rf /usr/local/lib/android
+          cd enterprise-kratix
+          ./scripts/test-ske-with-backstage-in-kind.sh
