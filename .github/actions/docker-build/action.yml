@@ -45,7 +45,7 @@ runs:
           done
         fi
 
-        "$GITHUB_ACTION_PATH/../../scripts/docker-build.sh" \
+        "$GITHUB_ACTION_PATH/../../../scripts/docker-build.sh" \
           --tag "${{ inputs.tag }}" \
           --dockerfile "${{ inputs.dockerfile }}" \
           --context "${{ inputs.context }}" \
