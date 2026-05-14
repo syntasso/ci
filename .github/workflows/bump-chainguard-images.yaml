@@ -52,27 +52,24 @@ jobs:
           latest_static="$(docker pull cgr.dev/chainguard/static:latest 2>/dev/null | grep -o 'sha256:[a-fA-F0-9]\+' | cut -d':' -f2)"
           latest_gitbase="$(docker pull cgr.dev/chainguard/git:latest 2>/dev/null | grep -o 'sha256:[a-fA-F0-9]\+' | cut -d':' -f2)"
           latest_golang="$(docker pull cgr.dev/chainguard/go:latest 2>/dev/null | grep -o 'sha256:[a-fA-F0-9]\+' | cut -d':' -f2)"
-          latest_node="$(docker pull cgr.dev/chainguard/node:22 2>/dev/null | grep -o 'sha256:[a-fA-F0-9]\+' | cut -d':' -f2)"
-
           echo "latest_wolfi=$latest_wolfi" >> "$GITHUB_ENV"
           echo "latest_static=$latest_static" >> "$GITHUB_ENV"
           echo "latest_gitbase=$latest_gitbase" >> "$GITHUB_ENV"
           echo "latest_golang=$latest_golang" >> "$GITHUB_ENV"
-          echo "latest_node=$latest_node" >> "$GITHUB_ENV"
 
-          ./scripts/mirror-chainguard-images.bash $latest_wolfi $latest_static $latest_gitbase $latest_golang $latest_node
+          ./scripts/mirror-chainguard-images.bash $latest_wolfi $latest_static $latest_gitbase $latest_golang
           echo "Docker build and push complete"
       - name: Bump SKE dockerfile base images to latest Chainguard SHA
         working-directory: enterprise-kratix
         run: |
-          ./scripts/bump-dockerfile-to-latest-chainguard-sha $latest_wolfi $latest_static $latest_gitbase $latest_golang $latest_node Dockerfile.ske-platform
-          ./scripts/bump-dockerfile-to-latest-chainguard-sha $latest_wolfi $latest_static $latest_gitbase $latest_golang $latest_node Dockerfile.ske-quick-start-installer
-          ./scripts/bump-dockerfile-to-latest-chainguard-sha $latest_wolfi $latest_static $latest_gitbase $latest_golang $latest_node backstage-controller/Dockerfile
-          ./scripts/bump-dockerfile-to-latest-chainguard-sha $latest_wolfi $latest_static $latest_gitbase $latest_golang $latest_node headlamp-ske/Dockerfile
-          ./scripts/bump-dockerfile-to-latest-chainguard-sha $latest_wolfi $latest_static $latest_gitbase $latest_golang $latest_node k8s-health-agent/Dockerfile
-          ./scripts/bump-dockerfile-to-latest-chainguard-sha $latest_wolfi $latest_static $latest_gitbase $latest_golang $latest_node ske-cortex-controller/Dockerfile
-          ./scripts/bump-dockerfile-to-latest-chainguard-sha $latest_wolfi $latest_static $latest_gitbase $latest_golang $latest_node ske-operator/Dockerfile
-          ./scripts/bump-dockerfile-to-latest-chainguard-sha $latest_wolfi $latest_static $latest_gitbase $latest_golang $latest_node ske-platform-image/Dockerfile
+          ./scripts/bump-dockerfile-to-latest-chainguard-sha $latest_wolfi $latest_static $latest_gitbase $latest_golang Dockerfile.ske-platform
+          ./scripts/bump-dockerfile-to-latest-chainguard-sha $latest_wolfi $latest_static $latest_gitbase $latest_golang Dockerfile.ske-quick-start-installer
+          ./scripts/bump-dockerfile-to-latest-chainguard-sha $latest_wolfi $latest_static $latest_gitbase $latest_golang backstage-controller/Dockerfile
+          ./scripts/bump-dockerfile-to-latest-chainguard-sha $latest_wolfi $latest_static $latest_gitbase $latest_golang headlamp-ske/Dockerfile
+          ./scripts/bump-dockerfile-to-latest-chainguard-sha $latest_wolfi $latest_static $latest_gitbase $latest_golang k8s-health-agent/Dockerfile
+          ./scripts/bump-dockerfile-to-latest-chainguard-sha $latest_wolfi $latest_static $latest_gitbase $latest_golang ske-cortex-controller/Dockerfile
+          ./scripts/bump-dockerfile-to-latest-chainguard-sha $latest_wolfi $latest_static $latest_gitbase $latest_golang ske-operator/Dockerfile
+          ./scripts/bump-dockerfile-to-latest-chainguard-sha $latest_wolfi $latest_static $latest_gitbase $latest_golang ske-platform-image/Dockerfile
 
           git config user.name "syntassodev"
           git config user.email "kratix@syntasso.io"
@@ -111,7 +108,7 @@ jobs:
               continue
             fi
             pushd $image_dir
-              ${{ github.workspace }}/enterprise-kratix/scripts/bump-dockerfile-to-latest-chainguard-sha $latest_wolfi $latest_static $latest_gitbase $latest_golang $latest_node Dockerfile
+              ${{ github.workspace }}/enterprise-kratix/scripts/bump-dockerfile-to-latest-chainguard-sha $latest_wolfi $latest_static $latest_gitbase $latest_golang Dockerfile
             popd
           done
 
@@ -140,7 +137,7 @@ jobs:
         working-directory: port-controller
         run: |
           dockerfile_path=ske-port-controller/Dockerfile
-          ${{ github.workspace }}/enterprise-kratix/scripts/bump-dockerfile-to-latest-chainguard-sha $latest_wolfi $latest_static $latest_gitbase $latest_golang $latest_node $dockerfile_path
+          ${{ github.workspace }}/enterprise-kratix/scripts/bump-dockerfile-to-latest-chainguard-sha $latest_wolfi $latest_static $latest_gitbase $latest_golang $dockerfile_path
 
           git config user.name "syntassodev"
           git config user.email "kratix@syntasso.io"
