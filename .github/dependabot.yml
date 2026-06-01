@@ -9,7 +9,6 @@ updates:
     schedule:
       interval: weekly
       day: monday
-    open-pull-requests-limit: 0
     groups:
       github-actions:
         patterns: ["*"]
