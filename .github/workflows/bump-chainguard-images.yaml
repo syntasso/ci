@@ -10,11 +10,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout ci repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: syntasso/ci
       - name: Checkout enterprise-kratix repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: syntasso/enterprise-kratix
           path: enterprise-kratix
@@ -32,7 +32,7 @@ jobs:
         env:
           TF_TOKEN_app_terraform_io: ${{ secrets.TF_TOKEN_app_terraform_io }}
       - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@v6
         with:
           aws-access-key-id: ${{ env.CI_USER_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ env.CI_USER_SECRET_ACCESS_KEY }}
@@ -94,7 +94,7 @@ jobs:
           git pull origin main --rebase
           git push origin main
       - name: Checkout ske-image repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: syntasso/ske-images
           ssh-key: ${{ secrets.SKE_IMAGES_DEPLOY_KEY_READ_PUSH }}
@@ -128,7 +128,7 @@ jobs:
           git commit -m "feat: updating Chainguard SHA in SKE images"
           git push origin main
       - name: Checkout port-controller repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: syntasso/ske-port-controller
           ssh-key: ${{ secrets.PORT_CONTROLLER_READ_WRITE_KEY }}

@@ -23,13 +23,13 @@ jobs:
     steps:
       - name: Generate GitHub App token
         id: generate-token
-        uses: actions/create-github-app-token@v1
+        uses: actions/create-github-app-token@v3
         with:
           app-id: ${{ secrets.AUTOMATION_APP_ID }}
           private-key: ${{ secrets.AUTOMATION_PRIVATE_KEY }}
           repositories: kratix
       - name: Set pending status
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           github-token: ${{ steps.generate-token.outputs.token }}
           script: |
@@ -52,7 +52,7 @@ jobs:
               core.setFailed(`Failed to set pending status: ${error.message}`);
             }
       - name: Generate Summary
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             const sha = ${{ toJson(github.event.inputs.sha) }}
@@ -113,7 +113,7 @@ jobs:
     if: "${{ github.event.inputs.sha != '' }}"
     steps:
       - name: Check out enterprise kratix
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: syntasso/enterprise-kratix
           submodules: recursive
@@ -147,14 +147,14 @@ jobs:
     steps:
       - name: Generate GitHub App token
         id: generate-token
-        uses: actions/create-github-app-token@v1
+        uses: actions/create-github-app-token@v3
         with:
           app-id: ${{ secrets.AUTOMATION_APP_ID }}
           private-key: ${{ secrets.AUTOMATION_PRIVATE_KEY }}
           repositories: kratix
 
       - name: Update Kratix commit status
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           github-token: ${{ steps.generate-token.outputs.token }}
           script: |
