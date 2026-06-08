@@ -14,19 +14,19 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check out enterprise kratix
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: syntasso/enterprise-kratix
           ssh-key: ${{ secrets.ENTERPRISE_KRATIX_DEPLOY_KEY_READ_PUSH }}
           ref: ${{ github.event.inputs.ske_sha }}
           submodules: recursive
       - name: Install Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version: 1.26
           check-latest: true
       - name: Set up Docker (pinned)
-        uses: docker/setup-docker-action@v4
+        uses: docker/setup-docker-action@v5
         with:
           version: 29.1.5
       - name: Snyk golang scan on kratix
@@ -38,7 +38,7 @@ jobs:
         with:
           args: --severity-threshold=high
       - name: Login to ghcr
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: ghcr.io
           username: syntassodev
@@ -70,7 +70,7 @@ jobs:
           image: ghcr.io/syntasso/ske-platform:$NEW_TAG
           args: --severity-threshold=high --username=syntassodev --password=${{ secrets.GHCR_TOKEN }}
       - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@v6
         with:
           aws-region: eu-west-2
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -97,7 +97,7 @@ jobs:
     needs: [create-pre-release]
     steps:
       - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@v6
         with:
           aws-access-key-id: ${{ secrets.ENTERPRISE_KRATIX_TEST_AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.ENTERPRISE_KRATIX_TEST_AWS_SECRET_ACCESS_KEY }}
@@ -105,9 +105,9 @@ jobs:
           role-to-assume: ${{ secrets.EKS_KUBECTL_ADMIN_ROLE_ARN }}
           role-session-name: test
           role-skip-session-tagging: true
-      - uses: hashicorp/setup-terraform@v3
+      - uses: hashicorp/setup-terraform@v4
       - name: Check out enterprise kratix
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: syntasso/enterprise-kratix
           ssh-key: ${{ secrets.ENTERPRISE_KRATIX_DEPLOY_KEY_READ_PUSH }}
@@ -119,7 +119,7 @@ jobs:
         env:
           TF_TOKEN_app_terraform_io: ${{ secrets.TF_TOKEN_app_terraform_io }}
       - name: Install Helm
-        uses: azure/setup-helm@v4.3.0
+        uses: azure/setup-helm@v5
         with:
           version: v3.16.4
       - name: Upgrade LRE
@@ -147,7 +147,7 @@ jobs:
     needs: [create-pre-release]
     steps:
       - name: Checkout ci repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: syntasso/ci
       - name: Setup Common Environment
