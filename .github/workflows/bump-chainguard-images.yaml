@@ -88,7 +88,7 @@ jobs:
           done
 
           echo "Changes made, committing and pushing..."
-          git commit -m "feat: updating Chainguard SHA"
+          git commit -m "fix(deps): update Chainguard SHA"
 
           git stash
           git pull origin main --rebase
@@ -125,7 +125,7 @@ jobs:
 
           echo "Changes made, committing and pushing..."
           git add -- '*/Dockerfile'
-          git commit -m "feat: updating Chainguard SHA in SKE images"
+          git commit -m "fix(deps): update Chainguard SHA in SKE images"
           git push origin main
       - name: Checkout port-controller repository
         uses: actions/checkout@v6
@@ -156,7 +156,7 @@ jobs:
           done
 
           echo "Changes made, committing and pushing..."
-          git commit -m "feat: updating Chainguard SHA"
+          git commit -m "fix(deps): update Chainguard SHA"
 
           git stash
           git pull origin main --rebase
