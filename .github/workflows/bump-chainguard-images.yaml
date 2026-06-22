@@ -10,11 +10,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout ci repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           repository: syntasso/ci
       - name: Checkout enterprise-kratix repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           repository: syntasso/enterprise-kratix
           path: enterprise-kratix
@@ -94,7 +94,7 @@ jobs:
           git pull origin main --rebase
           git push origin main
       - name: Checkout ske-image repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           repository: syntasso/ske-images
           ssh-key: ${{ secrets.SKE_IMAGES_DEPLOY_KEY_READ_PUSH }}
@@ -128,7 +128,7 @@ jobs:
           git commit -m "fix(deps): bump chainguard base image"
           git push origin main
       - name: Checkout port-controller repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           repository: syntasso/ske-port-controller
           ssh-key: ${{ secrets.PORT_CONTROLLER_READ_WRITE_KEY }}
