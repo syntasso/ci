@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check out enterprise kratix
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           repository: syntasso/enterprise-kratix
           ssh-key: ${{ secrets.ENTERPRISE_KRATIX_DEPLOY_KEY_READ_PUSH }}

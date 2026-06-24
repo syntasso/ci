@@ -14,7 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check out enterprise kratix
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           repository: syntasso/enterprise-kratix
           ssh-key: ${{ secrets.ENTERPRISE_KRATIX_DEPLOY_KEY_READ_PUSH }}
@@ -107,7 +107,7 @@ jobs:
           role-skip-session-tagging: true
       - uses: hashicorp/setup-terraform@v4
       - name: Check out enterprise kratix
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           repository: syntasso/enterprise-kratix
           ssh-key: ${{ secrets.ENTERPRISE_KRATIX_DEPLOY_KEY_READ_PUSH }}
@@ -147,7 +147,7 @@ jobs:
     needs: [create-pre-release]
     steps:
       - name: Checkout ci repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           repository: syntasso/ci
       - name: Setup Common Environment
