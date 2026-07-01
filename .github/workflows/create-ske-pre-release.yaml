@@ -20,6 +20,7 @@ jobs:
           ssh-key: ${{ secrets.ENTERPRISE_KRATIX_DEPLOY_KEY_READ_PUSH }}
           ref: ${{ github.event.inputs.ske_sha }}
           submodules: recursive
+          fetch-depth: 0
       - name: Install Go
         uses: actions/setup-go@v6
         with:
