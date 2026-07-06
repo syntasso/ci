@@ -11,6 +11,7 @@ push="false"
 load="false"
 extra_tags=()
 build_args=()
+build_contexts=()
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -32,6 +33,8 @@ while [[ $# -gt 0 ]]; do
       extra_tags+=("$2"); shift 2 ;;
     --build-arg)
       build_args+=("--build-arg" "$2"); shift 2 ;;
+    --build-context)
+      build_contexts+=("--build-context" "$2"); shift 2 ;;
     *)
       echo "Unknown argument: $1" >&2
       exit 1 ;;
@@ -62,6 +65,9 @@ if ((${#extra_tags[@]} > 0)); then
 fi
 if ((${#build_args[@]} > 0)); then
   args+=("${build_args[@]}")
+fi
+if ((${#build_contexts[@]} > 0)); then
+  args+=("${build_contexts[@]}")
 fi
 
 if [[ "$push" == "true" ]]; then
