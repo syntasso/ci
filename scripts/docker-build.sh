@@ -14,6 +14,9 @@ extra_tags=()
 build_args=()
 build_contexts=()
 
+# Remote BuildKit layer cache (GHCR). Override if needed.
+CACHE_REPO="${DOCKER_BUILDX_CACHE_REPO:-ghcr.io/syntasso/build-cache}"
+
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --tag)
@@ -54,8 +57,9 @@ if [[ "$push" == "true" && "$load" == "true" ]]; then
   exit 1
 fi
 
-# When GHA cache is enabled, use the job's buildx builder (from docker/setup-buildx-action)
-# so type=gha cache works. Otherwise keep a named builder for local multi-arch builds.
+# When remote cache is enabled, prefer the job's buildx builder (from
+# docker/setup-buildx-action) so --load works reliably. Otherwise keep a named
+# builder for local multi-arch builds.
 if [[ "${DOCKER_BUILDX_GHA_ENABLE:-}" == "1" ]]; then
   args=(--platform "$platforms" --file "$dockerfile" -t "$tag")
 else
@@ -79,11 +83,15 @@ if ((${#build_contexts[@]} > 0)); then
   args+=("${build_contexts[@]}")
 fi
 
-# GHA cache: DOCKER_BUILDX_GHA_ENABLE=1 and --cache-scope <name>.
-# Fork PRs should set DOCKER_BUILDX_GHA_ENABLE=0 (read-only token can't cache-to).
+# Registry cache (GHCR): DOCKER_BUILDX_GHA_ENABLE=1 and --cache-scope <name>.
+# (Env name is historical; backend is type=registry — type=gha was a no-op on
+# Sprinters runners.) Fork PRs should set DOCKER_BUILDX_GHA_ENABLE=0 so they
+# don't attempt cache-to without write access to the cache package.
 if [[ "${DOCKER_BUILDX_GHA_ENABLE:-}" == "1" && -n "${cache_scope}" ]]; then
-  args+=(--cache-from "type=gha,scope=${cache_scope}")
-  args+=(--cache-to "type=gha,mode=max,scope=${cache_scope}")
+  cache_ref="${CACHE_REPO}:${cache_scope}"
+  args+=(--cache-from "type=registry,ref=${cache_ref}")
+  # ignore-error: first warm / transient registry issues shouldn't fail the build.
+  args+=(--cache-to "type=registry,ref=${cache_ref},mode=max,ignore-error=true")
 fi
 
 if [[ "$push" == "true" ]]; then
