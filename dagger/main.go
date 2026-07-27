@@ -28,7 +28,8 @@ package main
 import (
 	"context"
 	"fmt"
-	// fmt used in SkeOperatorAll for error wrapping and output formatting
+
+	"dagger/ci/internal/dagger"
 )
 
 // Ci is the Dagger module for Syntasso CI pipelines.
@@ -43,7 +44,7 @@ type Ci struct{}
 // In GitHub Actions the equivalent is 'make docker-build' buried inside a job —
 // there is no way to pass the resulting image as a typed value to the next job
 // without pushing it to a registry first.
-func (m *Ci) SkeOperatorBuild(source *Directory) *Container {
+func (m *Ci) SkeOperatorBuild(source *dagger.Directory) *dagger.Container {
 	return dag.Container().
 		From("golang:1.26").
 		WithMountedCache("/go/pkg/mod", dag.CacheVolume("ske-operator-go-mod")).
@@ -57,7 +58,7 @@ func (m *Ci) SkeOperatorBuild(source *Directory) *Container {
 // SkeOperatorUnit runs ske-operator unit tests in a Go container.
 // Caches Go modules, build artefacts, and envtest binaries — warm runs
 // complete in ~30s vs ~3min cold on GHA.
-func (m *Ci) SkeOperatorUnit(ctx context.Context, source *Directory) (string, error) {
+func (m *Ci) SkeOperatorUnit(ctx context.Context, source *dagger.Directory) (string, error) {
 	return dag.Container().
 		From("golang:1.26").
 		WithMountedCache("/go/pkg/mod", dag.CacheVolume("ske-operator-go-mod")).
@@ -104,17 +105,18 @@ func (m *Ci) SkeOperatorE2e(
 	ctx context.Context,
 	// image is the pre-built ske-operator *Container from SkeOperatorBuild.
 	// Pass it here to reuse the cached build; omit nothing will rebuild.
-	image *Container,
-	source *Directory,
-	githubToken *Secret,
-	skeLicenseToken *Secret,
+	image *dagger.Container,
+	source *dagger.Directory,
+	githubToken *dagger.Secret,
+	skeLicenseToken *dagger.Secret,
 ) (string, error) {
+
 	// Docker-in-Docker service. The cache volume keeps the layer store warm
 	// across runs so image pulls don't repeat on re-runs.
 	dockerd := dag.Container().
 		From("docker:27-dind").
 		WithMountedCache("/var/lib/docker", dag.CacheVolume("ske-operator-dind-layers")).
-		AsService(ContainerAsServiceOpts{UseEntrypoint: true, InsecureRootCapabilities: true})
+		AsService(dagger.ContainerAsServiceOpts{UseEntrypoint: true, InsecureRootCapabilities: true})
 
 	// Export the typed *Container as an OCI tarball.
 	// This is the typed artifact handoff: the image built in SkeOperatorBuild
@@ -205,9 +207,9 @@ func (m *Ci) SkeOperatorE2e(
 // triggering another 'make docker-build'.
 func (m *Ci) SkeOperatorAll(
 	ctx context.Context,
-	source *Directory,
-	githubToken *Secret,
-	skeLicenseToken *Secret,
+	source *dagger.Directory,
+	githubToken *dagger.Secret,
+	skeLicenseToken *dagger.Secret,
 ) (string, error) {
 	// Build once. Dagger content-addresses this by source hash — if nothing
 	// changed, subsequent calls return the cached layer instantly.
