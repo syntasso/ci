@@ -92,7 +92,7 @@ runs:
         path: |
           ${{ inputs.tools_base_path }}/bin/kustomize*
           ${{ inputs.tools_base_path }}/bin/controller-gen*
-        key: ${{ runner.os }}-kratix-tools-${{ env.GO_VERSION }}-${{ env.KUSTOMIZE_VERSION }}-${{ env.CONTROLLER_TOOLS_VERSION }}
+        key: ${{ runner.os }}-${{ runner.arch }}-kratix-tools-${{ env.GO_VERSION }}-${{ env.KUSTOMIZE_VERSION }}-${{ env.CONTROLLER_TOOLS_VERSION }}
 
     - name: Install build tools
       shell: bash
