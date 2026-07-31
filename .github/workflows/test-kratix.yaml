@@ -52,7 +52,7 @@ jobs:
           make test
 
   build-kratix-image:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04-arm
     needs: [unit-tests-and-lint]
     steps:
       - name: Checkout ci repository
