@@ -164,7 +164,7 @@ jobs:
           DOCKER_BUILDKIT=1 ACK_GINKGO_RC=true cd hack/kratix-quick-start-installer && make system-test
 
   system-test:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04-arm
     needs: [build-kratix-image, build-quick-start-installer-image]
     strategy:
       fail-fast: false
