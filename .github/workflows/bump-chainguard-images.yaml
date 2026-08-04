@@ -10,16 +10,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout ci repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: syntasso/ci
       - name: Checkout enterprise-kratix repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: syntasso/enterprise-kratix
           path: enterprise-kratix
           ssh-key: ${{ secrets.ENTERPRISE_KRATIX_DEPLOY_KEY_READ_PUSH }}
-      - uses: hashicorp/setup-terraform@v4
+      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
       - name: Fetch terraform outputs and place into env variables
         working-directory: enterprise-kratix/terraform
         run: |
@@ -32,7 +32,7 @@ jobs:
         env:
           TF_TOKEN_app_terraform_io: ${{ secrets.TF_TOKEN_app_terraform_io }}
       - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v6
+        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3
         with:
           aws-access-key-id: ${{ env.CI_USER_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ env.CI_USER_SECRET_ACCESS_KEY }}
@@ -94,7 +94,7 @@ jobs:
           git pull origin main --rebase
           git push origin main
       - name: Checkout ske-image repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: syntasso/ske-images
           ssh-key: ${{ secrets.SKE_IMAGES_DEPLOY_KEY_READ_PUSH }}
@@ -128,7 +128,7 @@ jobs:
           git commit -m "fix(deps): bump chainguard base image"
           git push origin main
       - name: Checkout port-controller repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: syntasso/ske-port-controller
           ssh-key: ${{ secrets.PORT_CONTROLLER_READ_WRITE_KEY }}
