@@ -30,7 +30,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout ci repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: syntasso/ci
       - name: Setup Common Environment
@@ -41,7 +41,7 @@ jobs:
           path: kratix
           ssh_session: ${{ github.event.inputs.ssh_session }}
       - name: golangci-lint
-        uses: golangci/golangci-lint-action@v9
+        uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9.3.0
         with:
           version: v2.11
           working-directory: kratix
@@ -56,7 +56,7 @@ jobs:
     needs: [unit-tests-and-lint]
     steps:
       - name: Checkout ci repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: syntasso/ci
 
@@ -70,7 +70,7 @@ jobs:
 
       - name: Start tmate ssh debugging session
         if: "${{ inputs.ssh_session == 'true' }}"
-        uses: mxschmitt/action-tmate@v3
+        uses: mxschmitt/action-tmate@35b54afac29c97fb54faba5b513f8fbd1882f113 # v3.24
         with:
           limit-access-to-actor: true
           detached: true
@@ -83,7 +83,7 @@ jobs:
           echo "EXPORT_IMAGE_TAR=${EXPORT_IMAGE_TAR}" >> "${GITHUB_ENV}"
 
       - name: Upload Kratix image artifact
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: kratix-image-${{ github.run_id }}
           path: ${{ env.EXPORT_IMAGE_TAR }}
@@ -94,7 +94,7 @@ jobs:
     needs: [unit-tests-and-lint]
     steps:
       - name: Checkout ci repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: syntasso/ci
 
@@ -113,7 +113,7 @@ jobs:
           echo "QUICK_START_INSTALLER_TAR=${QUICK_START_INSTALLER_TAR}" >> "${GITHUB_ENV}"
 
       - name: Upload quick-start installer image artifact
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: quick-start-installer-image-${{ github.run_id }}
           path: ${{ env.QUICK_START_INSTALLER_TAR }}
@@ -124,7 +124,7 @@ jobs:
     needs: [build-kratix-image, build-quick-start-installer-image]
     steps:
       - name: Checkout ci repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: syntasso/ci
 
@@ -137,7 +137,7 @@ jobs:
           ssh_session: ${{ github.event.inputs.ssh_session }}
 
       - name: Download quick-start installer image artifact
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: quick-start-installer-image-${{ github.run_id }}
           path: ${{ runner.temp }}/quick-start-installer-image
@@ -148,7 +148,7 @@ jobs:
           docker load -i "${image_tar}"
 
       - name: Download Kratix image artifact
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: kratix-image-${{ github.run_id }}
           path: ${{ runner.temp }}/kratix-image
@@ -187,7 +187,7 @@ jobs:
           echo "WORKER_STATESTORE_TYPE=$WORKER_STATESTORE_TYPE" >> "${GITHUB_ENV}"
 
       - name: Checkout ci repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: syntasso/ci
 
@@ -200,7 +200,7 @@ jobs:
           ssh_session: ${{ github.event.inputs.ssh_session }}
 
       - name: Download quick-start installer image artifact
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: quick-start-installer-image-${{ github.run_id }}
           path: ${{ runner.temp }}/quick-start-installer-image
@@ -211,7 +211,7 @@ jobs:
           docker load -i "${image_tar}"
 
       - name: Download Kratix image artifact
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: kratix-image-${{ github.run_id }}
           path: ${{ runner.temp }}/kratix-image
@@ -244,7 +244,7 @@ jobs:
 
       - name: Gather controller logs and statuses
         if: ${{ always() && steps.system_tests.outcome == 'failure' }}
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: ${{ matrix.flags.name }}-system-test-debug-report
           path: output/debug-test
@@ -255,7 +255,7 @@ jobs:
     needs: [build-kratix-image]
     steps:
       - name: Checkout ci repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: syntasso/ci
 
@@ -268,7 +268,7 @@ jobs:
           ssh_session: ${{ github.event.inputs.ssh_session }}
 
       - name: Download Kratix image artifact
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: kratix-image-${{ github.run_id }}
           path: ${{ runner.temp }}/kratix-image
@@ -300,7 +300,7 @@ jobs:
           fi
       - name: Gather controller logs and statuses
         if: ${{ always() && steps.core_tests.outcome == 'failure' }}
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: core-test-debug-report
           path: output/debug-test
@@ -311,7 +311,7 @@ jobs:
     needs: [build-kratix-image]
     steps:
       - name: Checkout ci repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: syntasso/ci
 
@@ -324,7 +324,7 @@ jobs:
           ssh_session: ${{ github.event.inputs.ssh_session }}
 
       - name: Download Kratix image artifact
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: kratix-image-${{ github.run_id }}
           path: ${{ runner.temp }}/kratix-image
@@ -335,13 +335,13 @@ jobs:
           docker load -i "${image_tar}"
 
       - name: Checkout out kratix helm charts
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: syntasso/helm-charts
           path: kratix/charts
 
       - name: Install Helm
-        uses: azure/setup-helm@v5
+        uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5.0.1
       - name: e2e-demo-test-helm-git
         run: |
           cd kratix
@@ -354,7 +354,7 @@ jobs:
     needs: [build-kratix-image]
     steps:
       - name: Checkout ci repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: syntasso/ci
 
@@ -367,7 +367,7 @@ jobs:
           ssh_session: ${{ github.event.inputs.ssh_session }}
 
       - name: Download Kratix image artifact
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: kratix-image-${{ github.run_id }}
           path: ${{ runner.temp }}/kratix-image
@@ -378,13 +378,13 @@ jobs:
           docker load -i "${image_tar}"
 
       - name: Checkout out kratix helm charts
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: syntasso/helm-charts
           path: kratix/charts
 
       - name: Install Helm
-        uses: azure/setup-helm@v5
+        uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5.0.1
       - name: e2e-demo-test-helm-bucket
         run: |
           cd kratix
@@ -397,7 +397,7 @@ jobs:
     needs: [unit-tests-and-lint]
     steps:
       - name: Checkout ci repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: syntasso/ci
 
