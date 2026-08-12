@@ -48,7 +48,7 @@ runs:
   steps:
     - name: Checkout parameterized repository
       if: "${{ inputs.repository != '' }}"
-      uses: actions/checkout@v4
+      uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       with:
         repository: ${{ inputs.repository }}
         ref: ${{ inputs.ref }}
@@ -58,7 +58,7 @@ runs:
 
     - name: Checkout submodule repository
       if: "${{ inputs.submodule_repository != '' && inputs.submodule_ref != '' }}"
-      uses: actions/checkout@v4
+      uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       with:
         repository: ${{ inputs.submodule_repository }}
         ref: ${{ inputs.submodule_ref }}
@@ -66,13 +66,13 @@ runs:
 
     - name: Start tmate ssh debugging session
       if: "${{ inputs.ssh_session == 'true' }}"
-      uses: mxschmitt/action-tmate@v3
+      uses: mxschmitt/action-tmate@35b54afac29c97fb54faba5b513f8fbd1882f113 # v3.24
       with:
         limit-access-to-actor: true
         detached: true
 
     - name: Install Go
-      uses: actions/setup-go@v5
+      uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
       with:
         go-version: 1.26
         check-latest: true
@@ -87,7 +87,7 @@ runs:
         echo "CONTROLLER_TOOLS_VERSION=$(grep -E '^CONTROLLER_TOOLS_VERSION[[:space:]]*\?=' Makefile | tail -n1 | awk '{print $3}')" >> "$GITHUB_ENV"
 
     - name: Cache build tools
-      uses: actions/cache@v4
+      uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
       with:
         path: |
           ${{ inputs.tools_base_path }}/bin/kustomize*
@@ -102,12 +102,12 @@ runs:
         make kustomize
 
     - name: Install Kind
-      uses: helm/kind-action@v1
+      uses: helm/kind-action@ef37e7f390d99f746eb8b610417061a60e82a6cc # v1.14.0
       with:
         install_only: true
         version: v0.29.0
 
     - name: Setup Flux CLI
-      uses: fluxcd/flux2/action@main
+      uses: fluxcd/flux2/action@d708f5e2b791d4b3fcbe497e02806cb0fdae84b3 # main (no stable release)
       with:
         version: '2.4.0'

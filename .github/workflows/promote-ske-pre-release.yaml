@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check out enterprise kratix
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: syntasso/enterprise-kratix
           ssh-key: ${{ secrets.ENTERPRISE_KRATIX_DEPLOY_KEY_READ_PUSH }}
@@ -29,7 +29,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.ENTERPRISE_KRATIX_GH_TOKEN }}
       - name: Set up Docker (pinned)
-        uses: docker/setup-docker-action@v5
+        uses: docker/setup-docker-action@77e84dbf09b47d1e29270283c22f16145aa85ca1 # v5.4.0
         with:
           version: 29.1.5
       - name: Login to ghcr
@@ -92,7 +92,7 @@ jobs:
         run: |
           ./scripts/retag-ske-artifacts-to-full-release
       - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v6
+        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3
         with:
           aws-region: eu-west-2
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
