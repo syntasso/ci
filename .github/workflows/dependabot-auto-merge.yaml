@@ -1,0 +1,294 @@
+name: Dependabot Auto-merge
+
+on:
+  workflow_call:
+    secrets:
+      github_token:
+        required: true
+      gh_action_trigger_token:
+        required: true
+
+permissions:
+  pull-requests: write
+  # PR label add/remove goes through the Issues API even on a pull request.
+  issues: write
+  contents: write
+  checks: read
+  statuses: read
+
+jobs:
+  # Scheduled run: find open Dependabot github-actions PRs that have aged
+  # past the minimum wait period and merge them if CI is green.
+  retry-aged-prs:
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Auto-merge aged github-actions PRs
+        env:
+          GH_TOKEN: ${{ secrets.gh_action_trigger_token }}
+        run: |
+          MIN_AGE_DAYS=5
+          NOW=$(date +%s)
+
+          prs=$(gh pr list \
+            --repo ${{ github.repository }} \
+            --app dependabot \
+            --label "actions-age-wait" \
+            --state open \
+            --json number,title,headRefOid,labels \
+            --jq '.[] | select([.labels[].name] | index("requires-human-review") | not)')
+
+          echo "$prs" | jq -c '.' | while read -r pr; do
+            NUMBER=$(echo "$pr" | jq -r '.number')
+            TITLE=$(echo "$pr" | jq -r '.title')
+            HEAD_SHA=$(echo "$pr" | jq -r '.headRefOid')
+
+            # Age from the head commit being merged, not the PR's original creation —
+            # a synchronize push with a new action SHA must restart the cooling-off wait.
+            COMMIT_DATE=$(gh api "repos/${{ github.repository }}/commits/$HEAD_SHA" --jq '.commit.committer.date')
+            COMMIT_TS=$(date -d "$COMMIT_DATE" +%s)
+            PR_AGE_DAYS=$(( (NOW - COMMIT_TS) / 86400 ))
+            echo "PR #$NUMBER: age=${PR_AGE_DAYS}d (min=${MIN_AGE_DAYS}d) — $TITLE"
+
+            if [[ "$PR_AGE_DAYS" -lt "$MIN_AGE_DAYS" ]]; then
+              echo "  → Still too young, skipping"
+              continue
+            fi
+
+            # Check CI status (exclude the auto-merge check itself)
+            # Reusable-workflow jobs report a composite check name
+            # ("<caller job> / auto-merge"), not bare "auto-merge" — match both.
+            CI_STATUS=$(gh pr checks "$NUMBER" --repo ${{ github.repository }} --json name,state --jq '[.[] | select(.name != "auto-merge" and (.name | endswith("/ auto-merge") | not)) | select(.state != "SUCCESS" and .state != "SKIPPED")] | length' 2>/dev/null || echo "1")
+            if [[ "$CI_STATUS" != "0" ]]; then
+              echo "  → CI not fully green, skipping"
+              continue
+            fi
+
+            echo "  → Merging PR #$NUMBER"
+            # Pin to the exact commit that passed the age and CI checks above —
+            # a synchronize landing in between must not let a fresh, unvetted
+            # commit ride through on the old checks.
+            gh pr merge "$NUMBER" \
+              --repo ${{ github.repository }} \
+              --squash \
+              --delete-branch \
+              --match-head-commit "$HEAD_SHA" \
+              2>&1 || echo "  → Merge failed (might need workflow scope, or head moved)"
+          done
+
+  auto-merge:
+    runs-on: ubuntu-latest
+    if: github.actor == 'dependabot[bot]' && github.event_name == 'pull_request_target'
+    steps:
+      - name: Fetch Dependabot metadata
+        id: metadata
+        uses: dependabot/fetch-metadata@25dd0e34f4fe68f24cc83900b1fe3fe149efef98 # v3.1.0
+        with:
+          github-token: ${{ secrets.github_token }}
+
+      - name: Determine eligibility
+        id: eligible
+        env:
+          GH_TOKEN: ${{ secrets.github_token }}
+        run: |
+          TYPE="${{ steps.metadata.outputs.update-type }}"
+          PREV="${{ steps.metadata.outputs.previous-version }}"
+          NEW="${{ steps.metadata.outputs.new-version }}"
+          DEPS="${{ steps.metadata.outputs.dependency-names }}"
+          ECOSYSTEM="${{ steps.metadata.outputs.package-ecosystem }}"
+
+          echo "Update type: $TYPE"
+          echo "Version: $PREV → $NEW"
+          echo "Dependencies: $DEPS"
+          echo "Ecosystem: $ECOSYSTEM"
+
+          if echo "$DEPS" | grep -qE '(^|,\s*)(k8s\.io/|sigs\.k8s\.io/controller-runtime)'; then
+            echo "result=false" >> "$GITHUB_OUTPUT"
+            echo "reason=k8s ecosystem bump — must be coordinated manually" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if echo "$DEPS" | grep -qiE '(^|,\s*)(headlamp|backstage)'; then
+            echo "result=false" >> "$GITHUB_OUTPUT"
+            echo "reason=fork dep (headlamp/backstage) — requires human review" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Reject major bumps outright — they always require human review regardless
+          # of ecosystem or age. Must be checked before the age gate to prevent major
+          # bumps from being labelled actions-age-wait and auto-merged by the daily job.
+          if [[ "$TYPE" != "version-update:semver-patch" && "$TYPE" != "version-update:semver-minor" ]]; then
+            echo "result=false" >> "$GITHUB_OUTPUT"
+            echo "reason=major bump — manual review required" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # GitHub Actions SHA updates: enforce a 5-day minimum age before auto-merging.
+          # Supply chain attacks on popular actions are typically caught by the community
+          # within a few days. This window gives time to detect a compromised release
+          # before it lands automatically. See: https://docs.github.com/en/actions/security-guides/security-hardening-for-github-actions
+          if [[ "$ECOSYSTEM" == "github-actions" ]]; then
+            MIN_AGE_DAYS=5
+            HEAD_SHA="${{ github.event.pull_request.head.sha }}"
+            NOW=$(date +%s)
+            # Age from the head commit being merged, not the PR's original creation —
+            # a synchronize push with a new action SHA must restart the cooling-off wait.
+            COMMIT_DATE=$(gh api "repos/${{ github.repository }}/commits/$HEAD_SHA" --jq '.commit.committer.date')
+            COMMIT_TS=$(date -d "$COMMIT_DATE" +%s)
+            PR_AGE_DAYS=$(( (NOW - COMMIT_TS) / 86400 ))
+            echo "PR age: ${PR_AGE_DAYS} days (minimum: ${MIN_AGE_DAYS})"
+            if [[ "$PR_AGE_DAYS" -lt "$MIN_AGE_DAYS" ]]; then
+              echo "result=false" >> "$GITHUB_OUTPUT"
+              echo "reason=github-actions bump is ${PR_AGE_DAYS}d old — waiting until ${MIN_AGE_DAYS}d minimum for supply chain safety (will retry via daily schedule)" >> "$GITHUB_OUTPUT"
+              echo "label=actions-age-wait" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+          fi
+
+          # If we reach here, it's a patch or minor bump that has passed all gates.
+          echo "result=true" >> "$GITHUB_OUTPUT"
+          echo "reason=${TYPE} ($PREV → $NEW)" >> "$GITHUB_OUTPUT"
+
+      - name: Label ineligible PR
+        if: steps.eligible.outputs.result != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.github_token }}
+        run: |
+          LABEL="${{ steps.eligible.outputs.label }}"
+          if [[ -z "$LABEL" ]]; then
+            LABEL="requires-human-review"
+          fi
+
+          if [[ "$LABEL" == "actions-age-wait" ]]; then
+            gh api repos/${{ github.repository }}/labels \
+              -f name="actions-age-wait" \
+              -f color="fbca04" \
+              -f description="GitHub Actions bump waiting for 5-day supply chain safety period" \
+              2>/dev/null || true
+          else
+            gh api repos/${{ github.repository }}/labels \
+              -f name="requires-human-review" \
+              -f color="e11d48" \
+              -f description="Dependency bump blocked from auto-merge — needs human review" \
+              2>/dev/null || true
+          fi
+
+          # A PR moving from age-wait to requires-human-review must drop the
+          # now-stale age-wait label, so the scheduled job's label query
+          # can't pick it back up. The reverse must NOT happen: a human may
+          # have deliberately added requires-human-review, and a later
+          # synchronize re-running this as an age-wait case must not clear it.
+          if [[ "$LABEL" == "requires-human-review" ]]; then
+            gh pr edit ${{ github.event.pull_request.number }} \
+              --repo ${{ github.repository }} \
+              --remove-label "actions-age-wait" \
+              2>/dev/null || true
+          fi
+
+          gh pr edit ${{ github.event.pull_request.number }} \
+            --repo ${{ github.repository }} \
+            --add-label "$LABEL"
+
+      - name: Wait for CI checks
+        if: steps.eligible.outputs.result == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.github_token }}
+        run: |
+          sleep 20
+          PR="${{ github.event.pull_request.number }}"
+          REPO="${{ github.repository }}"
+          EMPTY_ROUNDS=0
+          for i in $(seq 1 120); do
+            # gh pr checks combines check-runs and legacy commit statuses —
+            # the same source the scheduled job already relies on.
+            # gh pr checks exits nonzero whenever checks are pending or failed,
+            # while still printing its JSON — `|| echo "[]"` would append a
+            # second array onto that output. Capture stdout regardless of exit
+            # status; only fall back to "[]" if nothing came back at all.
+            # Reusable-workflow jobs report a composite check name
+            # ("<caller job> / auto-merge"), not bare "auto-merge" — match both.
+            STATUS=$(gh pr checks "$PR" --repo "$REPO" --json name,state \
+              --jq '[.[] | select(.name != "auto-merge" and (.name | endswith("/ auto-merge") | not))]' \
+              2>/dev/null)
+            STATUS="${STATUS:-[]}"
+            TOTAL=$(echo "$STATUS" | jq 'length')
+            if [ "$TOTAL" -eq 0 ]; then
+              EMPTY_ROUNDS=$((EMPTY_ROUNDS + 1))
+              echo "Round $i: no external checks registered yet (${EMPTY_ROUNDS} consecutive empty rounds)"
+              if [ "$EMPTY_ROUNDS" -ge 10 ]; then
+                gh pr comment "$PR" --repo "$REPO" \
+                  --body "⚠️ **auto-merge**: CI checks unreadable after 5 minutes. Possible GitHub API issue — check CI manually and merge if green." \
+                  2>/dev/null || true
+                echo "Circuit breaker: exiting after $EMPTY_ROUNDS empty rounds"
+                exit 1
+              fi
+              sleep 30
+              continue
+            fi
+            EMPTY_ROUNDS=0
+            PENDING=$(echo "$STATUS" | jq '[.[] | select(.state == "IN_PROGRESS" or .state == "QUEUED" or .state == "PENDING" or .state == "WAITING")] | length')
+            # Fail closed: any completed state that isn't explicitly SUCCESS/SKIPPED
+            # blocks the merge (covers FAILURE, TIMED_OUT, STALE, STARTUP_FAILURE, ...).
+            FAILED=$(echo "$STATUS" | jq '[.[] | select(.state != "SUCCESS" and .state != "SKIPPED" and .state != "IN_PROGRESS" and .state != "QUEUED" and .state != "PENDING" and .state != "WAITING")] | length')
+            echo "Round $i: failed=$FAILED pending=$PENDING total=$TOTAL"
+            if [ "$FAILED" -gt 0 ]; then
+              echo "CI checks failed"
+              exit 1
+            fi
+            if [ "$PENDING" -eq 0 ]; then
+              echo "All checks passed"
+              exit 0
+            fi
+            sleep 30
+          done
+          echo "Timed out waiting for CI checks"
+          exit 1
+        timeout-minutes: 65
+
+      - name: Check for late-added human-review hold
+        id: recheck
+        if: steps.eligible.outputs.result == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.github_token }}
+        run: |
+          # The CI wait can run for up to 65 minutes — a maintainer may add
+          # requires-human-review while this job is polling. Re-read labels
+          # right before merging rather than trusting the start-of-run check.
+          LABELS=$(gh pr view ${{ github.event.pull_request.number }} \
+            --repo ${{ github.repository }} --json labels --jq '[.labels[].name]')
+          if echo "$LABELS" | jq -e 'index("requires-human-review")' > /dev/null; then
+            echo "held=true" >> "$GITHUB_OUTPUT"
+            echo "requires-human-review was added while waiting on CI — aborting auto-merge"
+          else
+            echo "held=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Merge
+        if: steps.eligible.outputs.result == 'true' && steps.recheck.outputs.held != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.gh_action_trigger_token }}
+        run: |
+          echo "Auto-merging: ${{ steps.eligible.outputs.reason }}"
+          # Pin to the head that was actually age/CI-checked — a push landing
+          # between the check and this step must not ride through unvetted.
+          gh pr merge ${{ github.event.pull_request.number }} \
+            --repo ${{ github.repository }} \
+            --squash \
+            --delete-branch \
+            --match-head-commit "${{ github.event.pull_request.head.sha }}"
+
+      - name: Step summary
+        if: always()
+        run: |
+          echo "## Auto-merge result" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Field | Value |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|---|---|" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Dependencies | \`${{ steps.metadata.outputs.dependency-names }}\` |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Update type | ${{ steps.metadata.outputs.update-type }} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Eligible | ${{ steps.eligible.outputs.result }} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Reason | ${{ steps.eligible.outputs.reason }} |" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Skip — not eligible
+        if: steps.eligible.outputs.result != 'true'
+        run: echo "Not auto-merging — ${{ steps.eligible.outputs.reason }}"
