@@ -17,4 +17,5 @@ var (
 	_ Pipeline = (*SkeOperator)(nil)
 	_ Pipeline = (*Kratix)(nil)
 	_ Pipeline = (*KratixCli)(nil)
+	_ Pipeline = (*BackstageController)(nil)
 )

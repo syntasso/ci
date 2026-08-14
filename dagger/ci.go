@@ -4,7 +4,8 @@
 // and pin the SDK version.
 //
 // Each constructor below returns a typed component object — SkeOperator,
-// Kratix, KratixCli — scoped to a source directory, chainable from the CLI:
+// Kratix, KratixCli, BackstageController — scoped to a source directory,
+// chainable from the CLI:
 //
 //	dagger call ske-operator --source=./enterprise-kratix/ske-operator build
 //	dagger call ske-operator --source=./enterprise-kratix/ske-operator unit
@@ -17,7 +18,12 @@
 //	dagger call kratix-cli --source=./kratix-cli build
 //	dagger call kratix-cli --source=./kratix-cli unit
 //
-// All three embed Checkout (checkout.go) for their Source/Component state —
+//	dagger call backstage-controller \
+//	  --source=./enterprise-kratix/backstage-controller build
+//	dagger call backstage-controller \
+//	  --source=./enterprise-kratix/backstage-controller unit
+//
+// All four embed Checkout (checkout.go) for their Source/Component state —
 // Go's idiomatic stand-in for inheritance — and satisfy Pipeline (pipeline.go):
 // Unit and IsReleasable have the same shape everywhere, compiler-enforced.
 // Build and SystemTest stay concrete per component. The releasability domain
@@ -65,6 +71,15 @@ func (m *Ci) Kratix(source *dagger.Directory) *Kratix {
 func (m *Ci) KratixCli(source *dagger.Directory) *KratixCli {
 	return &KratixCli{Checkout{
 		Name:   "kratix-cli",
+		Source: source,
+	}}
+}
+
+// BackstageController scopes subsequent calls to the backstage-controller
+// source directory (a subdirectory of an enterprise-kratix checkout).
+func (m *Ci) BackstageController(source *dagger.Directory) *BackstageController {
+	return &BackstageController{Checkout{
+		Name:   "backstage-controller",
 		Source: source,
 	}}
 }
