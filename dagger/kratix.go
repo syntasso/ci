@@ -41,22 +41,32 @@ func (m *Kratix) Unit(ctx context.Context) (string, error) {
 		Stdout(ctx)
 }
 
-// SystemTest runs the kratix system-test suite inside a Docker-in-Docker Kind
-// cluster, cloud only per the graduation checklist (~31min, reconciliation
-// bound — this is not a local target). Unlike ske-operator's hand-rolled Kind
-// setup, kratix's clusters (platform + worker, gitea, minio, flux) are
-// already orchestrated by scripts/quick-start.sh — reusing it here avoids
-// re-encoding that setup a second time, which the constraints in the brief
-// warn is easy to get subtly wrong (cert-manager webhook timing race, cold
-// image pulls).
+// Platform brings up a running kratix platform on a Kind cluster inside a
+// dedicated Docker-in-Docker service, using the pre-built kratix image (the
+// same typed-artifact handoff as everywhere else — no rebuild, no registry
+// round-trip). Extracted out of SystemTest so it's independently reusable:
+// per the phase-1 survey, ske-cortex-controller, ske-portal-controller, and
+// k8s-health-agent all need "kratix already running" as a prerequisite for
+// their own e2e suites, and today each reimplements that bring-up itself.
+// None of those three are wrapped in Dagger yet — this is the shared piece
+// ready for when they are, dogfooded immediately below by SystemTest itself.
 //
-// The pre-built image is loaded into the DIND daemon and re-tagged to match
-// every tag the Makefile's docker-build target produces. Combined with
-// CI=true, this trips the Makefile's existing "image already loaded"
-// short-circuit so quick-start.sh reuses the typed *Container from Build
-// instead of rebuilding it — the same typed-artifact handoff as the
-// ske-operator path.
-func (m *Kratix) SystemTest(ctx context.Context, image *dagger.Container) (string, error) {
+// Returns the DIND service — bind it via WithServiceBinding("docker", ...)
+// and set DOCKER_HOST=tcp://docker:2375 to reach the same cluster with
+// kratix already installed on it, same as SystemTest does.
+//
+// Unlike ske-operator's hand-rolled Kind setup, kratix's clusters (platform
+// + worker, gitea, minio, flux) are already orchestrated by
+// scripts/quick-start.sh — reusing it here avoids re-encoding that setup a
+// second time, which the constraints in the brief warn is easy to get
+// subtly wrong (cert-manager webhook timing race, cold image pulls).
+//
+// Not validated end-to-end: this is a refactor of SystemTest's own
+// bring-up logic, and SystemTest itself was already an unvalidated,
+// cloud-only function before this change (~31min, not a local target). This
+// carries the same disclosed limitation forward, now on top of a fresh
+// extraction — needs a real CI run to prove, same as before.
+func (m *Kratix) Platform(ctx context.Context, image *dagger.Container) (*dagger.Service, error) {
 	dockerd := dag.Container().
 		From("docker:27-dind").
 		WithMountedCache("/var/lib/docker", dag.CacheVolume("kratix-dind-layers")).
@@ -64,23 +74,13 @@ func (m *Kratix) SystemTest(ctx context.Context, image *dagger.Container) (strin
 
 	imageTar := image.AsTarball()
 
-	return dag.Container().
+	_, err := kindToolchain(dag.Container().
 		From("golang:1.26-bookworm").
 		WithMountedCache("/go/pkg/mod", dag.CacheVolume("kratix-go-mod")).
 		WithMountedCache("/root/.cache/go-build", dag.CacheVolume("kratix-go-build")).
 		WithServiceBinding("docker", dockerd).
 		WithEnvVariable("DOCKER_HOST", "tcp://docker:2375").
-		WithEnvVariable("CI", "true").
-		WithExec([]string{"apt-get", "update", "-qq"}).
-		WithExec([]string{"apt-get", "install", "-yq", "--no-install-recommends",
-			"curl", "ca-certificates", "make", "docker.io",
-		}).
-		WithExec([]string{"sh", "-c",
-			`curl -sSLo /usr/local/bin/kind https://kind.sigs.k8s.io/dl/v0.25.0/kind-linux-amd64 && chmod +x /usr/local/bin/kind`,
-		}).
-		WithExec([]string{"sh", "-c",
-			`curl -sSLo /usr/local/bin/kubectl "https://dl.k8s.io/release/v1.30.0/bin/linux/amd64/kubectl" && chmod +x /usr/local/bin/kubectl`,
-		}).
+		WithEnvVariable("CI", "true")).
 		WithMountedFile("/tmp/kratix.tar", imageTar).
 		// Re-tag the pre-built image to match every tag docker-build produces,
 		// so the Makefile's own "already loaded" check (CI=true + docker image
@@ -96,6 +96,33 @@ func (m *Kratix) SystemTest(ctx context.Context, image *dagger.Container) (strin
 		WithMountedDirectory("/src", m.Source).
 		WithWorkdir("/src").
 		WithExec([]string{"make", "quick-start"}).
+		Sync(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("kratix platform bring-up: %w", err)
+	}
+
+	return dockerd, nil
+}
+
+// SystemTest runs the kratix system-test suite against the platform Platform
+// brings up, cloud only per the graduation checklist (~31min,
+// reconciliation bound — this is not a local target).
+func (m *Kratix) SystemTest(ctx context.Context, image *dagger.Container) (string, error) {
+	dockerd, err := m.Platform(ctx, image)
+	if err != nil {
+		return "", fmt.Errorf("platform: %w", err)
+	}
+
+	ctr := dag.Container().
+		From("golang:1.26-bookworm").
+		WithMountedCache("/go/pkg/mod", dag.CacheVolume("kratix-go-mod")).
+		WithMountedCache("/root/.cache/go-build", dag.CacheVolume("kratix-go-build")).
+		WithServiceBinding("docker", dockerd).
+		WithEnvVariable("DOCKER_HOST", "tcp://docker:2375")
+
+	return kindToolchain(ctr).
+		WithMountedDirectory("/src", m.Source).
+		WithWorkdir("/src").
 		WithExec([]string{"make", "-j4", "run-system-test"}).
 		Stdout(ctx)
 }

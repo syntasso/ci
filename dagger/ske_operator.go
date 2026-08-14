@@ -100,25 +100,16 @@ func (m *SkeOperator) SystemTest(
 	// equivalent would require pushing to a registry first.
 	imageTar := image.AsTarball()
 
-	return dag.Container().
+	ctr := dag.Container().
 		From("golang:1.26-bookworm").
 		WithMountedCache("/go/pkg/mod", dag.CacheVolume("ske-operator-go-mod")).
 		WithMountedCache("/root/.cache/go-build", dag.CacheVolume("ske-operator-go-build")).
 		WithServiceBinding("docker", dockerd).
-		WithEnvVariable("DOCKER_HOST", "tcp://docker:2375").
-		WithExec([]string{"apt-get", "update", "-qq"}).
-		// docker.io provides the docker CLI client used below to talk to the
-		// DIND daemon over DOCKER_HOST — it was missing from the original
-		// spike, which is why 'docker load'/'docker pull' never ran.
-		WithExec([]string{"apt-get", "install", "-yq", "--no-install-recommends",
-			"curl", "ca-certificates", "make", "docker.io",
-		}).
-		WithExec([]string{"sh", "-c",
-			`curl -sSLo /usr/local/bin/kind https://kind.sigs.k8s.io/dl/v0.25.0/kind-linux-amd64 && chmod +x /usr/local/bin/kind`,
-		}).
-		WithExec([]string{"sh", "-c",
-			`curl -sSLo /usr/local/bin/kubectl "https://dl.k8s.io/release/v1.30.0/bin/linux/amd64/kubectl" && chmod +x /usr/local/bin/kubectl`,
-		}).
+		WithEnvVariable("DOCKER_HOST", "tcp://docker:2375")
+
+	return kindToolchain(ctr).
+		// ske-operator's e2e also needs flux and kustomize on top of the
+		// shared kind/kubectl/docker.io toolchain.
 		WithExec([]string{"sh", "-c",
 			`curl -s https://fluxcd.io/install.sh | FLUX_VERSION=2.4.0 bash`,
 		}).
