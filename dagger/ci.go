@@ -17,11 +17,13 @@
 //	dagger call kratix-cli --source=./kratix-cli build
 //	dagger call kratix-cli --source=./kratix-cli unit
 //
-// All three satisfy Pipeline (pipeline.go): Unit and IsReleasable have the
-// same shape everywhere, compiler-enforced. Build and SystemTest stay
-// concrete per component. Domain types — Component, Artifact, Release,
-// SkeRelease, KratixRelease, Commit, Tag — live in release.go, per ADR0013;
-// each component's IsReleasable dispatches through its Release value rather
+// All three embed Repo (repo.go) for their Source/Name state — Go's
+// idiomatic stand-in for inheritance — and satisfy Pipeline (pipeline.go):
+// Unit and IsReleasable have the same shape everywhere, compiler-enforced.
+// Build and SystemTest stay concrete per component. The releasability domain
+// model — Component, Artifact, Release, SkeRelease, KratixRelease, Commit,
+// Tag — lives in its own package, release/release.go, per ADR0013; each
+// component's IsReleasable dispatches through a release.Release value rather
 // than returning a bare bool.
 //
 // GHA stays the thin trigger/runner layer; this module is the single place
@@ -32,10 +34,10 @@
 //
 // SkeRelease.IsReleasable is meant to query the GitHub Deployments API for a
 // 5-day LRE soak window (ADR0013's phase 2 trunk-based delivery model). That
-// query isn't implemented yet — see release.go — so it always returns true
-// today. It exists now so the callable surface matches the graduation
-// checklist; the real gate lands with the rest of release orchestration in
-// phase 2.
+// query isn't implemented yet — see release/release.go — so it always
+// returns true today. It exists now so the callable surface matches the
+// graduation checklist; the real gate lands with the rest of release
+// orchestration in phase 2.
 package main
 
 import "dagger/ci/internal/dagger"
@@ -45,15 +47,15 @@ type Ci struct{}
 
 // SkeOperator scopes subsequent calls to the ske-operator source directory.
 func (m *Ci) SkeOperator(source *dagger.Directory) *SkeOperator {
-	return &SkeOperator{Source: source}
+	return &SkeOperator{Repo{Source: source, Name: "ske-operator"}}
 }
 
 // Kratix scopes subsequent calls to the kratix source directory.
 func (m *Ci) Kratix(source *dagger.Directory) *Kratix {
-	return &Kratix{Source: source}
+	return &Kratix{Repo{Source: source, Name: "kratix"}}
 }
 
 // KratixCli scopes subsequent calls to the kratix-cli source directory.
 func (m *Ci) KratixCli(source *dagger.Directory) *KratixCli {
-	return &KratixCli{Source: source}
+	return &KratixCli{Repo{Source: source, Name: "kratix-cli"}}
 }

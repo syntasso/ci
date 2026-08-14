@@ -6,16 +6,13 @@ import (
 	"time"
 
 	"dagger/ci/internal/dagger"
+	"dagger/ci/release"
 )
 
 // SkeOperator is the ske-operator component, scoped to a source checkout.
 // Construct it via Ci.SkeOperator; see ci.go for CLI usage.
 type SkeOperator struct {
-	Source *dagger.Directory
-}
-
-func (m *SkeOperator) component() Component {
-	return Component{Name: "ske-operator"}
+	Repo
 }
 
 // Build builds the ske-operator Docker image directly from its Dockerfile
@@ -231,13 +228,13 @@ func (m *SkeOperator) All(
 
 // IsReleasable dispatches through SkeRelease — ADR0013's gate for ske-operator
 // (5-day LRE soak window, GitHub Deployments API, no incident flag). That
-// query isn't implemented yet (see release.go), so this is a phase 1 stub:
-// always true. Tag stays zero-value until phase 2 plumbs a commit SHA into
-// these calls.
+// query isn't implemented yet (see release/release.go), so this is a phase 1
+// stub: always true. Tag stays zero-value until phase 2 plumbs a commit SHA
+// into these calls.
 func (m *SkeOperator) IsReleasable(ctx context.Context) (bool, error) {
-	release := SkeRelease{
-		Release:    Release{Component: m.component(), Type: "ske"},
+	rel := release.SkeRelease{
+		Release:    release.Release{Component: m.component(), Type: "ske"},
 		SoakWindow: 5 * 24 * time.Hour,
 	}
-	return release.IsReleasable(ctx)
+	return rel.IsReleasable(ctx)
 }

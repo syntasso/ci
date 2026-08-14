@@ -1,4 +1,9 @@
-package main
+// Package release holds the ADR0013 releasability domain model: Component,
+// Artifact, Release and its per-component variants, plus Commit/Tag. These
+// types are never returned from an exported Dagger function (SkeOperator,
+// Kratix, and KratixCli return plain bool/string/error), so they don't need
+// to live in the module's root package — only Dagger objects do.
+package release
 
 import (
 	"context"

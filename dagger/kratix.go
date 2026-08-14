@@ -5,17 +5,14 @@ import (
 	"fmt"
 
 	"dagger/ci/internal/dagger"
+	"dagger/ci/release"
 )
 
 // Kratix is the OSS kratix component, scoped to a source checkout. Same
 // shape as SkeOperator, no license token, no monorepo subdirectory scoping,
 // and no envtest dependency for unit tests.
 type Kratix struct {
-	Source *dagger.Directory
-}
-
-func (m *Kratix) component() Component {
-	return Component{Name: "kratix"}
+	Repo
 }
 
 // Build builds the kratix-platform Docker image directly from its Dockerfile
@@ -141,8 +138,8 @@ func (m *Kratix) All(ctx context.Context) (string, error) {
 // IsReleasable dispatches through KratixRelease — OSS Kratix releases on
 // every commit, per ADR0013's domain model (no gate, unlike SkeRelease).
 func (m *Kratix) IsReleasable(ctx context.Context) (bool, error) {
-	release := KratixRelease{
-		Release: Release{Component: m.component(), Type: "kratix"},
+	rel := release.KratixRelease{
+		Release: release.Release{Component: m.component(), Type: "kratix"},
 	}
-	return release.IsReleasable(ctx)
+	return rel.IsReleasable(ctx)
 }
