@@ -26,13 +26,20 @@ func (m *BackstageController) Build() *dagger.Container {
 }
 
 // Unit runs the backstage-controller unit test suite under envtest, same
-// pattern as SkeOperator.Unit. Its Makefile computes ENVTEST_K8S_VERSION and
-// ENVTEST_VERSION dynamically from go.mod (`go list -m ... k8s.io/api` /
-// `... controller-runtime`) rather than hardcoding them the way ske-operator
-// does; this function hardcodes the values they resolve to today (1.36 and
-// release-0.24) — same tradeoff every dagger call makes versus a Makefile
-// that recomputes them on every run.
+// pattern as SkeOperator.Unit. Its Makefile computes ENVTEST_K8S_VERSION
+// dynamically from go.mod (`go list -m k8s.io/api`) rather than hardcoding
+// it the way ske-operator does — envtestK8sVersion (envtest.go) replicates
+// that computation, so this stays correct as go.mod changes instead of
+// drifting from a hardcoded snapshot. ENVTEST_VERSION (the setup-envtest
+// tool's own release branch) is still hardcoded to release-0.24, the value
+// its `go list -m controller-runtime` computation resolves to today — a
+// second shared helper for that isn't built yet.
 func (m *BackstageController) Unit(ctx context.Context) (string, error) {
+	k8sVersion, err := envtestK8sVersion(ctx, m.Source)
+	if err != nil {
+		return "", fmt.Errorf("envtest k8s version: %w", err)
+	}
+
 	return dag.Container().
 		From("golang:1.26").
 		WithMountedCache("/go/pkg/mod", dag.CacheVolume("backstage-controller-go-mod")).
@@ -44,13 +51,13 @@ func (m *BackstageController) Unit(ctx context.Context) (string, error) {
 			"go", "install",
 			"sigs.k8s.io/controller-runtime/tools/setup-envtest@release-0.24",
 		}).
-		WithExec([]string{"bash", "-c", `
-			KUBEBUILDER_ASSETS=$(setup-envtest use 1.36 \
+		WithExec([]string{"bash", "-c", fmt.Sprintf(`
+			KUBEBUILDER_ASSETS=$(setup-envtest use %s \
 			  --bin-dir /root/.local/share/kubebuilder-envtest -p path)
 			export KUBEBUILDER_ASSETS
 			go test $(go list ./... | grep -v /e2e | grep -v /ske-backstage-generator/system) \
 			  -coverprofile cover.out
-		`}).
+		`, k8sVersion)}).
 		Stdout(ctx)
 }
 
