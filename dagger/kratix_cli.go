@@ -12,7 +12,7 @@ import (
 // Docker image, no k8s dependency — a plain binary build and a ginkgo suite
 // that fakes out its one external dependency (HELM_BINARY=echo).
 type KratixCli struct {
-	Repo
+	Checkout
 }
 
 // Build compiles the kratix CLI binary and returns it as a typed *File — the
@@ -98,6 +98,6 @@ func (m *KratixCli) All(ctx context.Context) (string, error) {
 // define a dedicated KratixCliRelease, and the CLI has no release gate, so
 // Release's default (always true) stands in directly.
 func (m *KratixCli) IsReleasable(ctx context.Context) (bool, error) {
-	rel := release.Release{Component: m.component(), Type: "kratix-cli"}
+	rel := release.Release{Component: release.Component{Name: m.Name}, Type: "kratix-cli"}
 	return rel.IsReleasable(ctx)
 }

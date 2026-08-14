@@ -17,8 +17,8 @@
 //	dagger call kratix-cli --source=./kratix-cli build
 //	dagger call kratix-cli --source=./kratix-cli unit
 //
-// All three embed Repo (repo.go) for their Source/Name state — Go's
-// idiomatic stand-in for inheritance — and satisfy Pipeline (pipeline.go):
+// All three embed Checkout (checkout.go) for their Source/Component state —
+// Go's idiomatic stand-in for inheritance — and satisfy Pipeline (pipeline.go):
 // Unit and IsReleasable have the same shape everywhere, compiler-enforced.
 // Build and SystemTest stay concrete per component. The releasability domain
 // model — Component, Artifact, Release, SkeRelease, KratixRelease, Commit,
@@ -47,15 +47,24 @@ type Ci struct{}
 
 // SkeOperator scopes subsequent calls to the ske-operator source directory.
 func (m *Ci) SkeOperator(source *dagger.Directory) *SkeOperator {
-	return &SkeOperator{Repo{Source: source, Name: "ske-operator"}}
+	return &SkeOperator{Checkout{
+		Name:   "ske-operator",
+		Source: source,
+	}}
 }
 
 // Kratix scopes subsequent calls to the kratix source directory.
 func (m *Ci) Kratix(source *dagger.Directory) *Kratix {
-	return &Kratix{Repo{Source: source, Name: "kratix"}}
+	return &Kratix{Checkout{
+		Name:   "kratix",
+		Source: source,
+	}}
 }
 
 // KratixCli scopes subsequent calls to the kratix-cli source directory.
 func (m *Ci) KratixCli(source *dagger.Directory) *KratixCli {
-	return &KratixCli{Repo{Source: source, Name: "kratix-cli"}}
+	return &KratixCli{Checkout{
+		Name:   "kratix-cli",
+		Source: source,
+	}}
 }

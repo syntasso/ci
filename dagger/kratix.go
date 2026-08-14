@@ -12,7 +12,7 @@ import (
 // shape as SkeOperator, no license token, no monorepo subdirectory scoping,
 // and no envtest dependency for unit tests.
 type Kratix struct {
-	Repo
+	Checkout
 }
 
 // Build builds the kratix-platform Docker image directly from its Dockerfile
@@ -139,7 +139,7 @@ func (m *Kratix) All(ctx context.Context) (string, error) {
 // every commit, per ADR0013's domain model (no gate, unlike SkeRelease).
 func (m *Kratix) IsReleasable(ctx context.Context) (bool, error) {
 	rel := release.KratixRelease{
-		Release: release.Release{Component: m.component(), Type: "kratix"},
+		Release: release.Release{Component: release.Component{Name: m.Name}, Type: "kratix"},
 	}
 	return rel.IsReleasable(ctx)
 }

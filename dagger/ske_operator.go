@@ -12,7 +12,7 @@ import (
 // SkeOperator is the ske-operator component, scoped to a source checkout.
 // Construct it via Ci.SkeOperator; see ci.go for CLI usage.
 type SkeOperator struct {
-	Repo
+	Checkout
 }
 
 // Build builds the ske-operator Docker image directly from its Dockerfile
@@ -233,7 +233,7 @@ func (m *SkeOperator) All(
 // into these calls.
 func (m *SkeOperator) IsReleasable(ctx context.Context) (bool, error) {
 	rel := release.SkeRelease{
-		Release:    release.Release{Component: m.component(), Type: "ske"},
+		Release:    release.Release{Component: release.Component{Name: m.Name}, Type: "ske"},
 		SoakWindow: 5 * 24 * time.Hour,
 	}
 	return rel.IsReleasable(ctx)
