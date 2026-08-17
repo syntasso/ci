@@ -3,7 +3,7 @@ name: Dependabot Auto-merge
 on:
   workflow_call:
     secrets:
-      github_token:
+      repo_token:
         required: true
       gh_action_trigger_token:
         required: true
@@ -84,12 +84,12 @@ jobs:
         id: metadata
         uses: dependabot/fetch-metadata@25dd0e34f4fe68f24cc83900b1fe3fe149efef98 # v3.1.0
         with:
-          github-token: ${{ secrets.github_token }}
+          github-token: ${{ secrets.repo_token }}
 
       - name: Determine eligibility
         id: eligible
         env:
-          GH_TOKEN: ${{ secrets.github_token }}
+          GH_TOKEN: ${{ secrets.repo_token }}
         run: |
           TYPE="${{ steps.metadata.outputs.update-type }}"
           PREV="${{ steps.metadata.outputs.previous-version }}"
@@ -152,7 +152,7 @@ jobs:
       - name: Label ineligible PR
         if: steps.eligible.outputs.result != 'true'
         env:
-          GH_TOKEN: ${{ secrets.github_token }}
+          GH_TOKEN: ${{ secrets.repo_token }}
         run: |
           LABEL="${{ steps.eligible.outputs.label }}"
           if [[ -z "$LABEL" ]]; then
@@ -192,7 +192,7 @@ jobs:
       - name: Wait for CI checks
         if: steps.eligible.outputs.result == 'true'
         env:
-          GH_TOKEN: ${{ secrets.github_token }}
+          GH_TOKEN: ${{ secrets.repo_token }}
         run: |
           sleep 20
           PR="${{ github.event.pull_request.number }}"
@@ -249,7 +249,7 @@ jobs:
         id: recheck
         if: steps.eligible.outputs.result == 'true'
         env:
-          GH_TOKEN: ${{ secrets.github_token }}
+          GH_TOKEN: ${{ secrets.repo_token }}
         run: |
           # The CI wait can run for up to 65 minutes — a maintainer may add
           # requires-human-review while this job is polling. Re-read labels
