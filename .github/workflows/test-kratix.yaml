@@ -176,11 +176,21 @@ jobs:
           - name: git
             env:
               WORKER_STATESTORE_TYPE: "GitStateStore"
+        shard:
+          - name: config
+            filter: "config-mutating"
+          - name: destinations
+            filter: "destination || git-recovery || compound-promise"
+          - name: rest
+            filter: "!config-mutating && !destination && !git-recovery && !compound-promise"
 
-    name: system-test (${{ matrix.flags.name }})
+    name: system-test (${{ matrix.flags.name }}, ${{ matrix.shard.name }})
     env:
       DOCKER_BUILDKIT: "1"
       ACK_GINKGO_RC: "true"
+      # Inner single quotes are required: the kratix Makefile expands
+      # GINKGO_FLAGS unquoted, so an unquoted && would split the command.
+      GINKGO_FLAGS: "--label-filter='${{ matrix.shard.filter }}'"
     steps:
       - name: set conditional env vars
         run: |
@@ -246,7 +256,7 @@ jobs:
         if: ${{ always() && steps.system_tests.outcome == 'failure' }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: ${{ matrix.flags.name }}-system-test-debug-report
+          name: ${{ matrix.flags.name }}-${{ matrix.shard.name }}-system-test-debug-report
           path: output/debug-test
           retention-days: 3
 
