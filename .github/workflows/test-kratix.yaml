@@ -181,11 +181,8 @@ jobs:
     env:
       DOCKER_BUILDKIT: "1"
       ACK_GINKGO_RC: "true"
+      WORKER_STATESTORE_TYPE: ${{ matrix.flags.env.WORKER_STATESTORE_TYPE }}
     steps:
-      - name: set conditional env vars
-        run: |
-          echo "WORKER_STATESTORE_TYPE=$WORKER_STATESTORE_TYPE" >> "${GITHUB_ENV}"
-
       - name: Checkout ci repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
