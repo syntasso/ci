@@ -151,7 +151,7 @@ jobs:
         uses: ./.github/actions/setup-backstage
         with:
           backstage_deploy_key: ${{ secrets.BACKSTAGE_REPO_DEPLOY_KEY }}
-          backstage_ref: ${{ github.event.inputs.backstage_sha }}
+          backstage_ref: ${{ inputs.backstage_sha }}
       - name: Backstage tests
         env:
           GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
