@@ -16,6 +16,10 @@ on:
         description: 'Commit sha of enterprise-kratix'
         required: false
         type: string
+      backstage_sha:
+        description: 'Commit sha of backstage (empty = default branch)'
+        required: false
+        type: string
   workflow_call:
     inputs:
       sha:
@@ -24,6 +28,10 @@ on:
         type: string
       ske_sha:
         description: 'Commit sha of enterprise-kratix'
+        required: false
+        type: string
+      backstage_sha:
+        description: 'Commit sha of backstage (empty = default branch)'
         required: false
         type: string
 
@@ -39,15 +47,15 @@ jobs:
         uses: ./.github/actions/setup-common
         with:
           repository: syntasso/enterprise-kratix
-          ref: ${{ github.event.inputs.ske_sha }}
+          ref: ${{ inputs.ske_sha }}
           path: enterprise-kratix
           ssh_key: ${{ secrets.ENTERPRISE_KRATIX_DEPLOY_KEY_READ_PUSH }}
           submodules: 'true'
           submodule_repository: syntasso/kratix
-          submodule_ref: ${{ github.event.inputs.sha }}
+          submodule_ref: ${{ inputs.sha }}
           submodule_path: enterprise-kratix/read-only-kratix
           tools_base_path: enterprise-kratix/read-only-kratix
-          ssh_session: ${{ github.event.inputs.ssh_session }}
+          ssh_session: ${{ inputs.ssh_session }}
       - name: Quick start tests
         env:
           GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
@@ -67,15 +75,15 @@ jobs:
         uses: ./.github/actions/setup-common
         with:
           repository: syntasso/enterprise-kratix
-          ref: ${{ github.event.inputs.ske_sha }}
+          ref: ${{ inputs.ske_sha }}
           path: enterprise-kratix
           ssh_key: ${{ secrets.ENTERPRISE_KRATIX_DEPLOY_KEY_READ_PUSH }}
           submodules: 'true'
           submodule_repository: syntasso/kratix
-          submodule_ref: ${{ github.event.inputs.sha }}
+          submodule_ref: ${{ inputs.sha }}
           submodule_path: enterprise-kratix/read-only-kratix
           tools_base_path: enterprise-kratix/read-only-kratix
-          ssh_session: ${{ github.event.inputs.ssh_session }}
+          ssh_session: ${{ inputs.ssh_session }}
       - name: Install vCluster CLI
         uses: loft-sh/setup-vcluster@68e17a8c3618e3c47d635842b803d4f560f694e8 # main (no stable release)
       - name: Upgrade tests
@@ -97,15 +105,15 @@ jobs:
         uses: ./.github/actions/setup-common
         with:
           repository: syntasso/enterprise-kratix
-          ref: ${{ github.event.inputs.ske_sha }}
+          ref: ${{ inputs.ske_sha }}
           path: enterprise-kratix
           ssh_key: ${{ secrets.ENTERPRISE_KRATIX_DEPLOY_KEY_READ_PUSH }}
           submodules: 'true'
           submodule_repository: syntasso/kratix
-          submodule_ref: ${{ github.event.inputs.sha }}
+          submodule_ref: ${{ inputs.sha }}
           submodule_path: enterprise-kratix/read-only-kratix
           tools_base_path: enterprise-kratix/read-only-kratix
-          ssh_session: ${{ github.event.inputs.ssh_session }}
+          ssh_session: ${{ inputs.ssh_session }}
       - name: Run downgrade test
         run: |
           cd enterprise-kratix/
@@ -130,19 +138,20 @@ jobs:
         uses: ./.github/actions/setup-common
         with:
           repository: syntasso/enterprise-kratix
-          ref: ${{ github.event.inputs.ske_sha }}
+          ref: ${{ inputs.ske_sha }}
           path: enterprise-kratix
           ssh_key: ${{ secrets.ENTERPRISE_KRATIX_DEPLOY_KEY_READ_PUSH }}
           submodules: 'true'
           submodule_repository: syntasso/kratix
-          submodule_ref: ${{ github.event.inputs.sha }}
+          submodule_ref: ${{ inputs.sha }}
           submodule_path: enterprise-kratix/read-only-kratix
           tools_base_path: enterprise-kratix/read-only-kratix
-          ssh_session: ${{ github.event.inputs.ssh_session }}
+          ssh_session: ${{ inputs.ssh_session }}
       - name: Setup Backstage Environment
         uses: ./.github/actions/setup-backstage
         with:
           backstage_deploy_key: ${{ secrets.BACKSTAGE_REPO_DEPLOY_KEY }}
+          backstage_ref: ${{ inputs.backstage_sha }}
       - name: Backstage tests
         env:
           GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
@@ -168,15 +177,15 @@ jobs:
         uses: ./.github/actions/setup-common
         with:
           repository: syntasso/enterprise-kratix
-          ref: ${{ github.event.inputs.ske_sha }}
+          ref: ${{ inputs.ske_sha }}
           path: enterprise-kratix
           ssh_key: ${{ secrets.ENTERPRISE_KRATIX_DEPLOY_KEY_READ_PUSH }}
           submodules: 'true'
           submodule_repository: syntasso/kratix
-          submodule_ref: ${{ github.event.inputs.sha }}
+          submodule_ref: ${{ inputs.sha }}
           submodule_path: enterprise-kratix/read-only-kratix
           tools_base_path: enterprise-kratix/read-only-kratix
-          ssh_session: ${{ github.event.inputs.ssh_session }}
+          ssh_session: ${{ inputs.ssh_session }}
       - name: Run make test-e2e-ci
         run: |
           cd enterprise-kratix/ske-operator
