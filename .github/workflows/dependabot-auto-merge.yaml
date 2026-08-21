@@ -209,7 +209,7 @@ jobs:
             # ("<caller job> / auto-merge"), not bare "auto-merge" — match both.
             STATUS=$(gh pr checks "$PR" --repo "$REPO" --json name,state \
               --jq '[.[] | select(.name != "auto-merge" and (.name | endswith("/ auto-merge") | not))]' \
-              2>/dev/null)
+              2>/dev/null) || true
             STATUS="${STATUS:-[]}"
             TOTAL=$(echo "$STATUS" | jq 'length')
             if [ "$TOTAL" -eq 0 ]; then
