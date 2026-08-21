@@ -16,6 +16,10 @@ on:
         description: 'Commit sha of enterprise-kratix'
         required: false
         type: string
+      backstage_sha:
+        description: 'Commit sha of backstage (empty = default branch)'
+        required: false
+        type: string
   workflow_call:
     inputs:
       sha:
@@ -24,6 +28,10 @@ on:
         type: string
       ske_sha:
         description: 'Commit sha of enterprise-kratix'
+        required: false
+        type: string
+      backstage_sha:
+        description: 'Commit sha of backstage (empty = default branch)'
         required: false
         type: string
 
@@ -143,6 +151,7 @@ jobs:
         uses: ./.github/actions/setup-backstage
         with:
           backstage_deploy_key: ${{ secrets.BACKSTAGE_REPO_DEPLOY_KEY }}
+          backstage_ref: ${{ github.event.inputs.backstage_sha }}
       - name: Backstage tests
         env:
           GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
