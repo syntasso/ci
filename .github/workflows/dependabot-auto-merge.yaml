@@ -86,68 +86,23 @@ jobs:
         with:
           github-token: ${{ secrets.repo_token }}
 
+      - name: Checkout ci repo
+        uses: actions/checkout@v4
+        with:
+          repository: syntasso/ci
+          path: .ci-scripts
+
       - name: Determine eligibility
         id: eligible
         env:
           GH_TOKEN: ${{ secrets.repo_token }}
-        run: |
-          TYPE="${{ steps.metadata.outputs.update-type }}"
-          PREV="${{ steps.metadata.outputs.previous-version }}"
-          NEW="${{ steps.metadata.outputs.new-version }}"
-          DEPS="${{ steps.metadata.outputs.dependency-names }}"
-          ECOSYSTEM="${{ steps.metadata.outputs.package-ecosystem }}"
-
-          echo "Update type: $TYPE"
-          echo "Version: $PREV → $NEW"
-          echo "Dependencies: $DEPS"
-          echo "Ecosystem: $ECOSYSTEM"
-
-          if echo "$DEPS" | grep -qE '(^|,\s*)(k8s\.io/|sigs\.k8s\.io/controller-runtime)'; then
-            echo "result=false" >> "$GITHUB_OUTPUT"
-            echo "reason=k8s ecosystem bump — must be coordinated manually" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-
-          if echo "$DEPS" | grep -qiE '(^|,\s*)(headlamp|backstage)'; then
-            echo "result=false" >> "$GITHUB_OUTPUT"
-            echo "reason=fork dep (headlamp/backstage) — requires human review" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-
-          # Reject major bumps outright — they always require human review regardless
-          # of ecosystem or age. Must be checked before the age gate to prevent major
-          # bumps from being labelled actions-age-wait and auto-merged by the daily job.
-          if [[ "$TYPE" != "version-update:semver-patch" && "$TYPE" != "version-update:semver-minor" ]]; then
-            echo "result=false" >> "$GITHUB_OUTPUT"
-            echo "reason=major bump — manual review required" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-
-          # GitHub Actions SHA updates: enforce a 5-day minimum age before auto-merging.
-          # Supply chain attacks on popular actions are typically caught by the community
-          # within a few days. This window gives time to detect a compromised release
-          # before it lands automatically. See: https://docs.github.com/en/actions/security-guides/security-hardening-for-github-actions
-          if [[ "$ECOSYSTEM" == "github-actions" ]]; then
-            MIN_AGE_DAYS=5
-            HEAD_SHA="${{ github.event.pull_request.head.sha }}"
-            NOW=$(date +%s)
-            # Age from the head commit being merged, not the PR's original creation —
-            # a synchronize push with a new action SHA must restart the cooling-off wait.
-            COMMIT_DATE=$(gh api "repos/${{ github.repository }}/commits/$HEAD_SHA" --jq '.commit.committer.date')
-            COMMIT_TS=$(date -d "$COMMIT_DATE" +%s)
-            PR_AGE_DAYS=$(( (NOW - COMMIT_TS) / 86400 ))
-            echo "PR age: ${PR_AGE_DAYS} days (minimum: ${MIN_AGE_DAYS})"
-            if [[ "$PR_AGE_DAYS" -lt "$MIN_AGE_DAYS" ]]; then
-              echo "result=false" >> "$GITHUB_OUTPUT"
-              echo "reason=github-actions bump is ${PR_AGE_DAYS}d old — waiting until ${MIN_AGE_DAYS}d minimum for supply chain safety (will retry via daily schedule)" >> "$GITHUB_OUTPUT"
-              echo "label=actions-age-wait" >> "$GITHUB_OUTPUT"
-              exit 0
-            fi
-          fi
-
-          # If we reach here, it's a patch or minor bump that has passed all gates.
-          echo "result=true" >> "$GITHUB_OUTPUT"
-          echo "reason=${TYPE} ($PREV → $NEW)" >> "$GITHUB_OUTPUT"
+          UPDATE_TYPE: ${{ steps.metadata.outputs.update-type }}
+          PREV_VERSION: ${{ steps.metadata.outputs.previous-version }}
+          NEW_VERSION: ${{ steps.metadata.outputs.new-version }}
+          DEPENDENCY_NAMES: ${{ steps.metadata.outputs.dependency-names }}
+          PACKAGE_ECOSYSTEM: ${{ steps.metadata.outputs.package-ecosystem }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: bash .ci-scripts/scripts/dependabot-eligible.sh
 
       - name: Label ineligible PR
         if: steps.eligible.outputs.result != 'true'
@@ -193,66 +148,9 @@ jobs:
         if: steps.eligible.outputs.result == 'true'
         env:
           GH_TOKEN: ${{ secrets.repo_token }}
-        run: |
-          sleep 20
-          PR="${{ github.event.pull_request.number }}"
-          REPO="${{ github.repository }}"
-          HEAD_SHA="${{ github.event.pull_request.head.sha }}"
-          EMPTY_ROUNDS=0
-          for i in $(seq 1 120); do
-            # gh pr checks combines check-runs and legacy commit statuses —
-            # the same source the scheduled job already relies on.
-            # gh pr checks exits nonzero whenever checks are pending or failed,
-            # while still printing its JSON — `|| echo "[]"` would append a
-            # second array onto that output. Capture stdout regardless of exit
-            # status; only fall back to "[]" if nothing came back at all.
-            # Reusable-workflow jobs report a composite check name
-            # ("<caller job> / auto-merge"), not bare "auto-merge" — match both.
-            STATUS=$(gh pr checks "$PR" --repo "$REPO" --json name,state \
-              --jq '[.[] | select(.name != "auto-merge" and (.name | endswith("/ auto-merge") | not))]' \
-              2>/dev/null) || true
-            STATUS="${STATUS:-[]}"
-            TOTAL=$(echo "$STATUS" | jq 'length')
-            # gh pr checks can return empty even when check runs exist — fall back
-            # to the commit-level check-runs API which queries by SHA directly and
-            # is unaffected by the pull_request_target permission context.
-            if [ "$TOTAL" -eq 0 ]; then
-              STATUS=$(gh api "repos/$REPO/commits/$HEAD_SHA/check-runs?per_page=100" \
-                --jq '[.check_runs[] | select((.name != "auto-merge") and (.name | endswith("/ auto-merge") | not)) | {name: .name, state: (if .conclusion != null then (.conclusion | ascii_upcase) else (.status | ascii_upcase) end)}]' \
-                2>/dev/null || echo "[]")
-              TOTAL=$(echo "$STATUS" | jq 'length')
-            fi
-            if [ "$TOTAL" -eq 0 ]; then
-              EMPTY_ROUNDS=$((EMPTY_ROUNDS + 1))
-              echo "Round $i: no external checks registered yet (${EMPTY_ROUNDS} consecutive empty rounds)"
-              if [ "$EMPTY_ROUNDS" -ge 10 ]; then
-                gh pr comment "$PR" --repo "$REPO" \
-                  --body "⚠️ **auto-merge**: CI checks unreadable after 5 minutes. Possible GitHub API issue — check CI manually and merge if green." \
-                  2>/dev/null || true
-                echo "Circuit breaker: exiting after $EMPTY_ROUNDS empty rounds"
-                exit 1
-              fi
-              sleep 30
-              continue
-            fi
-            EMPTY_ROUNDS=0
-            PENDING=$(echo "$STATUS" | jq '[.[] | select(.state == "IN_PROGRESS" or .state == "QUEUED" or .state == "PENDING" or .state == "WAITING")] | length')
-            # Fail closed: any completed state that isn't explicitly SUCCESS/SKIPPED
-            # blocks the merge (covers FAILURE, TIMED_OUT, STALE, STARTUP_FAILURE, ...).
-            FAILED=$(echo "$STATUS" | jq '[.[] | select(.state != "SUCCESS" and .state != "SKIPPED" and .state != "IN_PROGRESS" and .state != "QUEUED" and .state != "PENDING" and .state != "WAITING")] | length')
-            echo "Round $i: failed=$FAILED pending=$PENDING total=$TOTAL"
-            if [ "$FAILED" -gt 0 ]; then
-              echo "CI checks failed"
-              exit 1
-            fi
-            if [ "$PENDING" -eq 0 ]; then
-              echo "All checks passed"
-              exit 0
-            fi
-            sleep 30
-          done
-          echo "Timed out waiting for CI checks"
-          exit 1
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: bash .ci-scripts/scripts/dependabot-check-poll.sh
         timeout-minutes: 65
 
       - name: Check for late-added human-review hold
