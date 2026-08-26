@@ -86,14 +86,19 @@ jobs:
         with:
           github-token: ${{ secrets.repo_token }}
 
+      - name: Resolve reusable-workflow SHA
+        id: ci-sha
+        shell: bash
+        # GITHUB_WORKFLOW_SHA is set by GitHub's runner to the SHA of the
+        # currently executing workflow file — for a reusable workflow this is
+        # the commit in syntasso/ci, not the caller's repo.
+        run: printf 'sha=%s\n' "$GITHUB_WORKFLOW_SHA" >> "$GITHUB_OUTPUT"
+
       - name: Checkout ci repo
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: syntasso/ci
-          # In a workflow_call reusable workflow, github.workflow_sha is the SHA
-          # of the reusable workflow commit in syntasso/ci (not the caller's repo).
-          # This ensures cross-repo callers execute scripts from the pinned revision.
-          ref: ${{ github.workflow_sha }}
+          ref: ${{ steps.ci-sha.outputs.sha }}
           path: .ci-scripts
 
       - name: Determine eligibility
