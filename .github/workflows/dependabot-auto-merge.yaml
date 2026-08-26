@@ -197,6 +197,7 @@ jobs:
           sleep 20
           PR="${{ github.event.pull_request.number }}"
           REPO="${{ github.repository }}"
+          HEAD_SHA="${{ github.event.pull_request.head.sha }}"
           EMPTY_ROUNDS=0
           for i in $(seq 1 120); do
             # gh pr checks combines check-runs and legacy commit statuses —
@@ -212,6 +213,15 @@ jobs:
               2>/dev/null) || true
             STATUS="${STATUS:-[]}"
             TOTAL=$(echo "$STATUS" | jq 'length')
+            # gh pr checks can return empty even when check runs exist — fall back
+            # to the commit-level check-runs API which queries by SHA directly and
+            # is unaffected by the pull_request_target permission context.
+            if [ "$TOTAL" -eq 0 ]; then
+              STATUS=$(gh api "repos/$REPO/commits/$HEAD_SHA/check-runs?per_page=100" \
+                --jq '[.check_runs[] | select((.name != "auto-merge") and (.name | endswith("/ auto-merge") | not)) | {name: .name, state: (if .conclusion != null then (.conclusion | ascii_upcase) else (.status | ascii_upcase) end)}]' \
+                2>/dev/null || echo "[]")
+              TOTAL=$(echo "$STATUS" | jq 'length')
+            fi
             if [ "$TOTAL" -eq 0 ]; then
               EMPTY_ROUNDS=$((EMPTY_ROUNDS + 1))
               echo "Round $i: no external checks registered yet (${EMPTY_ROUNDS} consecutive empty rounds)"
