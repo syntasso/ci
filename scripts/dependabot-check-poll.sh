@@ -44,11 +44,18 @@ for i in $(seq 1 120); do
 			FALLBACK_ERR=true
 
 		# Legacy commit statuses (external CI systems using the Statuses API) are
-		# not returned by check-runs. The /status endpoint returns one entry per
-		# context (most recent), so no pagination is needed.
-		LEGACY=$(gh api "repos/$GITHUB_REPOSITORY/commits/$PR_HEAD_SHA/status" \
-			--jq '[.statuses[] | select(.context != "auto-merge") | {name: .context, state: (.state | ascii_upcase)}]' \
-			2>/dev/null) || FALLBACK_ERR=true
+		# not returned by check-runs. Use the paginated /statuses endpoint and
+		# deduplicate by context (API returns newest-first, so first per context
+		# is the most recent). The combined /status endpoint truncates results.
+		LEGACY=$(gh api --paginate \
+			"repos/$GITHUB_REPOSITORY/commits/$PR_HEAD_SHA/statuses" \
+			2>/dev/null |
+			jq -s '[
+				[.[].[] | select(.context != "auto-merge")]
+				| group_by(.context)[]
+				| .[0]
+				| {name: .context, state: (.state | ascii_upcase)}
+			]') || FALLBACK_ERR=true
 
 		if [ "$FALLBACK_ERR" = true ]; then
 			STATUS="[]"
