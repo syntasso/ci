@@ -2,6 +2,12 @@ name: Dependabot Auto-merge
 
 on:
   workflow_call:
+    inputs:
+      scripts_ref:
+        description: 'Ref of syntasso/ci to check out scripts from. Callers that pin this workflow to a SHA should pass the matching syntasso/ci SHA here so their scripts version matches the pinned workflow (default: main).'
+        required: false
+        type: string
+        default: 'main'
     secrets:
       repo_token:
         required: true
@@ -15,6 +21,9 @@ permissions:
   contents: write
   checks: read
   statuses: read
+  # actions: read is required by the fallback polling path to call
+  # /actions/runs?head_sha=<sha> when gh pr checks returns empty results.
+  actions: read
 
 jobs:
   # Scheduled run: find open Dependabot github-actions PRs that have aged
@@ -90,10 +99,12 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: syntasso/ci
-          # All callers pin to @main. github.workflow_sha and GITHUB_WORKFLOW_SHA
-          # both resolve to the CALLING workflow's SHA, not this reusable workflow's
-          # SHA, so they cannot be used to pin the checkout within syntasso/ci.
-          ref: main
+          # github.workflow_sha / GITHUB_WORKFLOW_SHA inside a reusable workflow
+          # resolve to the CALLING workflow's SHA, not this workflow's SHA, so
+          # they cannot pin this checkout. Callers that pin this workflow to a
+          # SHA should also pass scripts_ref: <same-sha> so their scripts version
+          # matches the pinned YAML. Callers using @main need not pass it.
+          ref: ${{ inputs.scripts_ref || 'main' }}
           path: .ci-scripts
 
       - name: Determine eligibility
