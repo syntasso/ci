@@ -30,9 +30,18 @@ for i in $(seq 1 120); do
 	TOTAL=$(echo "$STATUS" | jq 'length')
 
 	if [ "$TOTAL" -eq 0 ]; then
-		STATUS=$(gh api "repos/$GITHUB_REPOSITORY/commits/$PR_HEAD_SHA/check-runs?per_page=100" \
+		# gh pr checks can return empty in pull_request_target context — fall back
+		# to querying check-runs and legacy commit statuses directly by SHA.
+		CHECKRUNS=$(gh api "repos/$GITHUB_REPOSITORY/commits/$PR_HEAD_SHA/check-runs?per_page=100" \
 			--jq '[.check_runs[] | select((.name != "auto-merge") and (.name | endswith("/ auto-merge") | not)) | {name: .name, state: (if .conclusion != null then (.conclusion | ascii_upcase) else (.status | ascii_upcase) end)}]' \
 			2>/dev/null || echo "[]")
+		# Legacy statuses (e.g. external CI systems using the Statuses API) are not
+		# returned by the check-runs endpoint — query them separately and merge so a
+		# failing legacy status doesn't get silently ignored.
+		LEGACY=$(gh api "repos/$GITHUB_REPOSITORY/commits/$PR_HEAD_SHA/status" \
+			--jq '[.statuses[] | select(.context != "auto-merge") | {name: .context, state: (.state | ascii_upcase)}]' \
+			2>/dev/null || echo "[]")
+		STATUS=$(jq -n --argjson cr "$CHECKRUNS" --argjson st "$LEGACY" '$cr + $st')
 		TOTAL=$(echo "$STATUS" | jq 'length')
 	fi
 

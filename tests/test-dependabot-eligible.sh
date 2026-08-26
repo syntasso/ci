@@ -287,9 +287,67 @@ check_jq_state() {
 check_jq_state "SUCCESS not failed" '[{"name":"t","state":"SUCCESS"}]' 0
 check_jq_state "SKIPPED not failed" '[{"name":"t","state":"SKIPPED"}]' 0
 check_jq_state "IN_PROGRESS not failed" '[{"name":"t","state":"IN_PROGRESS"}]' 0
+check_jq_state "PENDING not failed (legacy status)" '[{"name":"t","state":"PENDING"}]' 0
 check_jq_state "FAILURE is failed" '[{"name":"t","state":"FAILURE"}]' 1
 check_jq_state "TIMED_OUT is failed" '[{"name":"t","state":"TIMED_OUT"}]' 1
+check_jq_state "ERROR is failed (legacy status)" '[{"name":"t","state":"ERROR"}]' 1
 check_jq_state "mixed: 1 fail 1 pass" '[{"name":"a","state":"SUCCESS"},{"name":"b","state":"FAILURE"}]' 1
+check_jq_state "legacy FAILURE blocks merge despite green check-run" \
+	'[{"name":"ci/build","state":"SUCCESS"},{"name":"external-ci","state":"FAILURE"}]' 1
+
+# ── legacy status merge (check-poll fallback) ─────────────────────────────────
+
+echo ""
+echo "=== jq: legacy status merge ==="
+
+merge_jq() {
+	local name="$1"
+	local checkruns="$2"
+	local legacy="$3"
+	local expected_total="$4"
+	local expected_failed="$5"
+
+	local merged
+	merged=$(jq -n --argjson cr "$checkruns" --argjson st "$legacy" '$cr + $st')
+	local total
+	total=$(echo "$merged" | jq 'length')
+	local failed
+	failed=$(echo "$merged" | jq "$failed_filter")
+
+	local ok=1
+	if [[ "$total" != "$expected_total" ]]; then
+		echo "FAIL [$name]: expected total=$expected_total, got $total"
+		ok=0
+	fi
+	if [[ "$failed" != "$expected_failed" ]]; then
+		echo "FAIL [$name]: expected failed=$expected_failed, got $failed"
+		ok=0
+	fi
+	[[ $ok -eq 1 ]] && {
+		echo "PASS [$name]"
+		PASS=$((PASS + 1))
+	} || FAIL=$((FAIL + 1))
+}
+
+merge_jq "green check-run + green legacy = 0 failed" \
+	'[{"name":"build","state":"SUCCESS"}]' \
+	'[{"name":"ext","state":"SUCCESS"}]' \
+	2 0
+
+merge_jq "green check-run + pending legacy = 0 failed, not all done" \
+	'[{"name":"build","state":"SUCCESS"}]' \
+	'[{"name":"ext","state":"PENDING"}]' \
+	2 0
+
+merge_jq "green check-run + failing legacy = 1 failed" \
+	'[{"name":"build","state":"SUCCESS"}]' \
+	'[{"name":"ext","state":"FAILURE"}]' \
+	2 1
+
+merge_jq "empty check-runs + failing legacy still caught" \
+	'[]' \
+	'[{"name":"ext","state":"FAILURE"}]' \
+	1 1
 
 # ── summary ───────────────────────────────────────────────────────────────────
 
