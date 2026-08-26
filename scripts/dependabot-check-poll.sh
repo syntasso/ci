@@ -37,21 +37,34 @@ for i in $(seq 1 120); do
 		# merging on incomplete data (fail-closed on API unavailability).
 		FALLBACK_ERR=false
 
-		# Paginate check-runs so repos with >100 checks are fully covered.
-		# For each app (e.g. GitHub Actions), only consider runs from that app's
-		# newest check suite — this discards stale suites left over from a
-		# closed+reopened PR while keeping all distinct checks within the newest
-		# suite intact. Grouping by app rather than by name means two independent
-		# jobs that share a name are both evaluated, not collapsed into one.
+		# Resolve which GitHub Actions check suites are active for this commit:
+		# one suite per workflow file (latest run_number). This excludes stale
+		# suites from a previous PR open/close cycle while preserving all suites
+		# from distinct workflow files (which share the same GitHub Actions app.id).
+		GA_SUITES=$(gh api --paginate \
+			"repos/$GITHUB_REPOSITORY/actions/runs?head_sha=$PR_HEAD_SHA" \
+			2>/dev/null |
+			jq -s '[[.[].workflow_runs[]] | group_by(.workflow_id)[] | max_by(.run_number) | .check_suite_id]') ||
+			FALLBACK_ERR=true
+		GA_SUITES="${GA_SUITES:-[]}"
+
+		# Paginate check-runs. For GitHub Actions, restrict to active suites only.
+		# For other apps, include all runs. Within each (name, suite) pair, keep
+		# the highest-id run — a re-run adds new runs to the same suite, so the
+		# old failed run must be superseded by its successful replacement.
 		CHECKRUNS=$(gh api --paginate \
 			"repos/$GITHUB_REPOSITORY/commits/$PR_HEAD_SHA/check-runs" \
 			2>/dev/null |
-			jq -s '[
+			jq -s --argjson ga_suites "$GA_SUITES" '[
 			  [.[].check_runs[]
-			    | select((.name != "auto-merge") and (.name | endswith("/ auto-merge") | not))]
-			  | group_by(.app.id)[]
-			  | (map(.check_suite.id) | max) as $newest_suite
-			  | [.[] | select(.check_suite.id == $newest_suite)][]
+			    | select((.name != "auto-merge") and (.name | endswith("/ auto-merge") | not))
+			    | select(
+			        if .app.slug == "github-actions" and ($ga_suites | length) > 0
+			        then (.check_suite.id as $s | ($ga_suites | index($s)) != null)
+			        else true
+			        end)]
+			  | group_by([.name, .check_suite.id])[]
+			  | max_by(.id)
 			  | {name: .name, state: (if .conclusion != null then (.conclusion | ascii_upcase) else (.status | ascii_upcase) end)}
 			]') ||
 			FALLBACK_ERR=true
