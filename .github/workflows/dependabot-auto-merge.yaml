@@ -90,10 +90,11 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: syntasso/ci
-          # github.workflow_sha is the commit SHA of the reusable workflow file
-          # in syntasso/ci — pinning the scripts to this SHA ensures callers who
-          # pin the workflow to a tag or SHA get exactly the scripts at that revision.
-          ref: ${{ github.workflow_sha }}
+          # job.workflow_sha is the SHA of the currently executing job's workflow
+          # file in syntasso/ci. Unlike github.workflow_sha (which is the calling
+          # repo's workflow SHA), this always resolves within syntasso/ci, so
+          # cross-repo callers get scripts from exactly the revision they pinned.
+          ref: ${{ job.workflow_sha }}
           path: .ci-scripts
 
       - name: Determine eligibility

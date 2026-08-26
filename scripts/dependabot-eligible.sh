@@ -20,20 +20,23 @@
 
 set -euo pipefail
 
-: "${UPDATE_TYPE:?}"
-: "${PREV_VERSION:?}"
-: "${NEW_VERSION:?}"
-: "${DEPENDENCY_NAMES:?}"
-: "${PACKAGE_ECOSYSTEM:?}"
 : "${GITHUB_REPOSITORY:?}"
 : "${PR_HEAD_SHA:?}"
 : "${GITHUB_OUTPUT:?}"
 
-TYPE="$UPDATE_TYPE"
-PREV="$PREV_VERSION"
-NEW="$NEW_VERSION"
-DEPS="$DEPENDENCY_NAMES"
-ECOSYSTEM="$PACKAGE_ECOSYSTEM"
+TYPE="${UPDATE_TYPE:-}"
+PREV="${PREV_VERSION:-}"
+NEW="${NEW_VERSION:-}"
+DEPS="${DEPENDENCY_NAMES:-}"
+ECOSYSTEM="${PACKAGE_ECOSYSTEM:-}"
+
+# fetch-metadata can emit empty values for non-semver or digest-only updates.
+# Treat missing metadata as ineligible rather than failing the job.
+if [[ -z "$TYPE" || -z "$DEPS" || -z "$ECOSYSTEM" ]]; then
+	echo "result=false" >>"$GITHUB_OUTPUT"
+	echo "reason=missing or non-semver metadata — requires human review" >>"$GITHUB_OUTPUT"
+	exit 0
+fi
 
 echo "Update type: $TYPE"
 echo "Version: $PREV → $NEW"

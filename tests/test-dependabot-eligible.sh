@@ -98,6 +98,22 @@ EOF
 
 echo "=== dependabot-eligible.sh ==="
 
+# missing update type (non-semver/digest update) — must mark ineligible, not fail job
+run_eligible "missing update type -> ineligible" false "" \
+	UPDATE_TYPE="" \
+	PREV_VERSION="" \
+	NEW_VERSION="" \
+	DEPENDENCY_NAMES=github.com/some/dep \
+	PACKAGE_ECOSYSTEM=gomod
+
+# missing ecosystem — must mark ineligible, not fail job
+run_eligible "missing ecosystem -> ineligible" false "" \
+	UPDATE_TYPE=version-update:semver-patch \
+	PREV_VERSION=1.0.0 \
+	NEW_VERSION=1.0.1 \
+	DEPENDENCY_NAMES=github.com/some/dep \
+	PACKAGE_ECOSYSTEM=""
+
 # go_modules patch — should auto-merge
 run_eligible "gomod patch" true "" \
 	UPDATE_TYPE=version-update:semver-patch \
