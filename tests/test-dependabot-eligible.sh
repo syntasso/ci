@@ -265,7 +265,7 @@ check_jq "empty input" '[]' 0
 echo ""
 echo "=== jq filter: failed state detection ==="
 
-failed_filter='[.[] | select(.state != "SUCCESS" and .state != "SKIPPED" and .state != "IN_PROGRESS" and .state != "QUEUED" and .state != "PENDING" and .state != "WAITING")] | length'
+failed_filter='[.[] | select(.state != "SUCCESS" and .state != "SKIPPED" and .state != "IN_PROGRESS" and .state != "QUEUED" and .state != "PENDING" and .state != "WAITING" and .state != "REQUESTED")] | length'
 
 check_jq_state() {
 	local name="$1"
@@ -288,6 +288,7 @@ check_jq_state "SUCCESS not failed" '[{"name":"t","state":"SUCCESS"}]' 0
 check_jq_state "SKIPPED not failed" '[{"name":"t","state":"SKIPPED"}]' 0
 check_jq_state "IN_PROGRESS not failed" '[{"name":"t","state":"IN_PROGRESS"}]' 0
 check_jq_state "PENDING not failed (legacy status)" '[{"name":"t","state":"PENDING"}]' 0
+check_jq_state "REQUESTED not failed (pre-acceptance check-run)" '[{"name":"t","state":"REQUESTED"}]' 0
 check_jq_state "FAILURE is failed" '[{"name":"t","state":"FAILURE"}]' 1
 check_jq_state "TIMED_OUT is failed" '[{"name":"t","state":"TIMED_OUT"}]' 1
 check_jq_state "ERROR is failed (legacy status)" '[{"name":"t","state":"ERROR"}]' 1

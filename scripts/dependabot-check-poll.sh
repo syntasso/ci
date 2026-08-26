@@ -22,7 +22,7 @@ EMPTY_ROUNDS=0
 for i in $(seq 1 120); do
 	# gh pr checks can return empty even when check runs exist when the workflow
 	# trigger context differs from pull_request_target. Fall back to the
-	# commit-level check-runs API which queries by SHA and is unaffected.
+	# commit-level APIs which query by SHA and are unaffected.
 	STATUS=$(gh pr checks "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --json name,state \
 		--jq '[.[] | select(.name != "auto-merge" and (.name | endswith("/ auto-merge") | not))]' \
 		2>/dev/null) || true
@@ -30,18 +30,31 @@ for i in $(seq 1 120); do
 	TOTAL=$(echo "$STATUS" | jq 'length')
 
 	if [ "$TOTAL" -eq 0 ]; then
-		# gh pr checks can return empty in pull_request_target context — fall back
-		# to querying check-runs and legacy commit statuses directly by SHA.
-		CHECKRUNS=$(gh api "repos/$GITHUB_REPOSITORY/commits/$PR_HEAD_SHA/check-runs?per_page=100" \
-			--jq '[.check_runs[] | select((.name != "auto-merge") and (.name | endswith("/ auto-merge") | not)) | {name: .name, state: (if .conclusion != null then (.conclusion | ascii_upcase) else (.status | ascii_upcase) end)}]' \
-			2>/dev/null || echo "[]")
-		# Legacy statuses (e.g. external CI systems using the Statuses API) are not
-		# returned by the check-runs endpoint — query them separately and merge so a
-		# failing legacy status doesn't get silently ignored.
+		# Both API calls must succeed; if either errors, keep polling rather than
+		# merging on incomplete data (fail-closed on API unavailability).
+		FALLBACK_ERR=false
+
+		# Paginate check-runs so repos with >100 checks are fully covered.
+		CHECKRUNS=$(gh api --paginate \
+			"repos/$GITHUB_REPOSITORY/commits/$PR_HEAD_SHA/check-runs" \
+			2>/dev/null |
+			jq -s '[.[].check_runs[]
+          | select((.name != "auto-merge") and (.name | endswith("/ auto-merge") | not))
+          | {name: .name, state: (if .conclusion != null then (.conclusion | ascii_upcase) else (.status | ascii_upcase) end)}]') ||
+			FALLBACK_ERR=true
+
+		# Legacy commit statuses (external CI systems using the Statuses API) are
+		# not returned by check-runs. The /status endpoint returns one entry per
+		# context (most recent), so no pagination is needed.
 		LEGACY=$(gh api "repos/$GITHUB_REPOSITORY/commits/$PR_HEAD_SHA/status" \
 			--jq '[.statuses[] | select(.context != "auto-merge") | {name: .context, state: (.state | ascii_upcase)}]' \
-			2>/dev/null || echo "[]")
-		STATUS=$(jq -n --argjson cr "$CHECKRUNS" --argjson st "$LEGACY" '$cr + $st')
+			2>/dev/null) || FALLBACK_ERR=true
+
+		if [ "$FALLBACK_ERR" = true ]; then
+			STATUS="[]"
+		else
+			STATUS=$(jq -n --argjson cr "$CHECKRUNS" --argjson st "$LEGACY" '$cr + $st')
+		fi
 		TOTAL=$(echo "$STATUS" | jq 'length')
 	fi
 
@@ -50,7 +63,7 @@ for i in $(seq 1 120); do
 		echo "Round $i: no external checks registered yet (${EMPTY_ROUNDS} consecutive empty rounds)"
 		if [ "$EMPTY_ROUNDS" -ge 10 ]; then
 			gh pr comment "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" \
-				--body "⚠️ **auto-merge**: CI checks unreadable after 5 minutes. Possible GitHub API issue — check CI manually and merge if green." \
+				--body "Warning: **auto-merge**: CI checks unreadable after 5 minutes. Possible GitHub API issue -- check CI manually and merge if green." \
 				2>/dev/null || true
 			echo "Circuit breaker: exiting after $EMPTY_ROUNDS empty rounds"
 			exit 1
@@ -60,9 +73,17 @@ for i in $(seq 1 120); do
 	fi
 
 	EMPTY_ROUNDS=0
-	PENDING=$(echo "$STATUS" | jq '[.[] | select(.state == "IN_PROGRESS" or .state == "QUEUED" or .state == "PENDING" or .state == "WAITING")] | length')
+	# REQUESTED = check run queued before the app accepts it; treat as pending.
+	PENDING=$(echo "$STATUS" | jq '[.[] | select(
+    .state == "IN_PROGRESS" or .state == "QUEUED" or
+    .state == "PENDING" or .state == "WAITING" or .state == "REQUESTED"
+  )] | length')
 	# Fail closed: anything not SUCCESS/SKIPPED/pending blocks the merge.
-	FAILED=$(echo "$STATUS" | jq '[.[] | select(.state != "SUCCESS" and .state != "SKIPPED" and .state != "IN_PROGRESS" and .state != "QUEUED" and .state != "PENDING" and .state != "WAITING")] | length')
+	FAILED=$(echo "$STATUS" | jq '[.[] | select(
+    .state != "SUCCESS" and .state != "SKIPPED" and
+    .state != "IN_PROGRESS" and .state != "QUEUED" and
+    .state != "PENDING" and .state != "WAITING" and .state != "REQUESTED"
+  )] | length')
 	echo "Round $i: failed=$FAILED pending=$PENDING total=$TOTAL"
 
 	if [ "$FAILED" -gt 0 ]; then
