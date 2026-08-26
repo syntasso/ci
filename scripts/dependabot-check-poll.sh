@@ -26,8 +26,13 @@ for i in $(seq 1 120); do
 	# gh pr checks can return empty even when check runs exist when the workflow
 	# trigger context differs from pull_request_target. Fall back to the
 	# commit-level APIs which query by SHA and are unaffected.
+	# Exclude this workflow's own jobs (auto-merge, retry-aged-prs) in both
+	# bare and composite "<caller job> / <name>" forms — a skipped or running
+	# self-check must never count as external CI.
 	STATUS=$(gh pr checks "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --json name,state \
-		--jq '[.[] | select(.name != "auto-merge" and (.name | endswith("/ auto-merge") | not))]' \
+		--jq '[.[]
+		  | select(.name != "auto-merge" and (.name | endswith("/ auto-merge") | not))
+		  | select(.name != "retry-aged-prs" and (.name | endswith("/ retry-aged-prs") | not))]' \
 		2>/dev/null) || true
 	STATUS="${STATUS:-[]}"
 	TOTAL=$(echo "$STATUS" | jq 'length')
@@ -37,37 +42,39 @@ for i in $(seq 1 120); do
 		# merging on incomplete data (fail-closed on API unavailability).
 		FALLBACK_ERR=false
 
-		# Identify non-cancelled check suites for this commit. When a PR is
-		# closed and reopened, GitHub cancels the previous workflow runs and
-		# marks their suites conclusion="cancelled". Excluding those suites
-		# drops the stale failed/cancelled runs without needing actions:read.
-		# Multiple distinct workflow files each create their own suite; all
-		# non-cancelled suites are kept so no active workflow is silently dropped.
-		ACTIVE_SUITES=$(gh api --paginate \
+		# A check suite that is still queued or in progress but has not yet
+		# emitted any check runs is invisible to the check-runs listing below.
+		# Represent each such suite as a synthetic pending entry so an all-green
+		# snapshot cannot merge ahead of a workflow that is about to register
+		# its runs. Restricted to the github-actions app: other apps (e.g.
+		# dependabot itself) create permanently empty queued suites that would
+		# otherwise block every merge until timeout.
+		PENDING_SUITES=$(gh api --paginate \
 			"repos/$GITHUB_REPOSITORY/commits/$PR_HEAD_SHA/check-suites" \
 			2>/dev/null |
 			jq -s '[.[].check_suites[]
-			  | select(.conclusion != "cancelled" and .conclusion != "stale")
-			  | .id]') ||
+			  | select(.app.slug == "github-actions"
+			      and .status != "completed"
+			      and .latest_check_runs_count == 0)
+			  | {name: ("check-suite-" + (.id | tostring)), state: "PENDING"}]') ||
 			FALLBACK_ERR=true
-		ACTIVE_SUITES="${ACTIVE_SUITES:-[]}"
+		PENDING_SUITES="${PENDING_SUITES:-[]}"
 
-		# Paginate check-runs filtered to active suites. Within each (name, suite)
-		# pair keep the highest-id run: a re-run adds new check runs to the same
-		# suite (same suite id, new run ids), so max_by(.id) supersedes the old
-		# failed attempt with the latest result.
+		# List every check run attempt (filter=all), then reduce to GitHub's
+		# own check identity: the latest run per (app, name). Branch protection
+		# and the gh pr checks rollup both key checks by name, so the fallback
+		# mirrors the primary path exactly. A rerun supersedes earlier attempts
+		# whether it lands in the same suite (re-run job) or a new one
+		# (closed/reopened PR), and a cancelled or failed run only blocks the
+		# merge while it is the newest run of its identity.
 		CHECKRUNS=$(gh api --paginate \
-			"repos/$GITHUB_REPOSITORY/commits/$PR_HEAD_SHA/check-runs" \
+			"repos/$GITHUB_REPOSITORY/commits/$PR_HEAD_SHA/check-runs?filter=all" \
 			2>/dev/null |
-			jq -s --argjson active_suites "$ACTIVE_SUITES" '[
+			jq -s '[
 			  [.[].check_runs[]
 			    | select((.name != "auto-merge") and (.name | endswith("/ auto-merge") | not))
-			    | select(
-			        if ($active_suites | length) > 0
-			        then (.check_suite.id as $s | ($active_suites | index($s)) != null)
-			        else true
-			        end)]
-			  | group_by([.name, .check_suite.id])[]
+			    | select((.name != "retry-aged-prs") and (.name | endswith("/ retry-aged-prs") | not))]
+			  | group_by([.app.id, .name])[]
 			  | max_by(.id)
 			  | {name: .name, state: (if .conclusion != null then (.conclusion | ascii_upcase) else (.status | ascii_upcase) end)}
 			]') ||
@@ -90,7 +97,7 @@ for i in $(seq 1 120); do
 		if [ "$FALLBACK_ERR" = true ]; then
 			STATUS="[]"
 		else
-			STATUS=$(jq -n --argjson cr "$CHECKRUNS" --argjson st "$LEGACY" '$cr + $st')
+			STATUS=$(jq -n --argjson cr "$CHECKRUNS" --argjson st "$LEGACY" --argjson ps "$PENDING_SUITES" '$cr + $st + $ps')
 		fi
 		TOTAL=$(echo "$STATUS" | jq 'length')
 	fi

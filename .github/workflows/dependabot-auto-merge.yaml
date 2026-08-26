@@ -4,10 +4,9 @@ on:
   workflow_call:
     inputs:
       scripts_ref:
-        description: 'Ref of syntasso/ci to check out scripts from. Callers that pin this workflow to a SHA should pass the matching syntasso/ci SHA here so their scripts version matches the pinned workflow (default: main).'
-        required: false
+        description: 'Ref of syntasso/ci to check out scripts from. Must match the ref used in the uses: line — pass the same SHA when pinning by SHA, or "main" when tracking main. Required so a pinned workflow can never silently execute scripts from a different ref.'
+        required: true
         type: string
-        default: 'main'
     secrets:
       repo_token:
         required: true
@@ -98,10 +97,10 @@ jobs:
           repository: syntasso/ci
           # github.workflow_sha / GITHUB_WORKFLOW_SHA inside a reusable workflow
           # resolve to the CALLING workflow's SHA, not this workflow's SHA, so
-          # they cannot pin this checkout. Callers that pin this workflow to a
-          # SHA should also pass scripts_ref: <same-sha> so their scripts version
-          # matches the pinned YAML. Callers using @main need not pass it.
-          ref: ${{ inputs.scripts_ref || 'main' }}
+          # they cannot pin this checkout. scripts_ref is a required input:
+          # callers pass the same ref they pinned in their uses: line, so the
+          # scripts version always matches the workflow YAML version.
+          ref: ${{ inputs.scripts_ref }}
           path: .ci-scripts
 
       - name: Determine eligibility
