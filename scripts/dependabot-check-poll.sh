@@ -19,6 +19,9 @@ set -uo pipefail
 sleep 20
 
 EMPTY_ROUNDS=0
+PREV_TOTAL=-1
+STABLE_ROUNDS=0
+
 for i in $(seq 1 120); do
 	# gh pr checks can return empty even when check runs exist when the workflow
 	# trigger context differs from pull_request_target. Fall back to the
@@ -35,12 +38,19 @@ for i in $(seq 1 120); do
 		FALLBACK_ERR=false
 
 		# Paginate check-runs so repos with >100 checks are fully covered.
+		# Deduplicate by name keeping the newest run per check identity (highest
+		# id) so a stale failed suite from an older re-push does not block a
+		# merge where the current suite is green.
 		CHECKRUNS=$(gh api --paginate \
 			"repos/$GITHUB_REPOSITORY/commits/$PR_HEAD_SHA/check-runs" \
 			2>/dev/null |
-			jq -s '[.[].check_runs[]
-          | select((.name != "auto-merge") and (.name | endswith("/ auto-merge") | not))
-          | {name: .name, state: (if .conclusion != null then (.conclusion | ascii_upcase) else (.status | ascii_upcase) end)}]') ||
+			jq -s '[
+			  [.[].check_runs[]
+			    | select((.name != "auto-merge") and (.name | endswith("/ auto-merge") | not))]
+			  | group_by(.name)[]
+			  | max_by(.id)
+			  | {name: .name, state: (if .conclusion != null then (.conclusion | ascii_upcase) else (.status | ascii_upcase) end)}
+			]') ||
 			FALLBACK_ERR=true
 
 		# Legacy commit statuses (external CI systems using the Statuses API) are
@@ -67,6 +77,8 @@ for i in $(seq 1 120); do
 
 	if [ "$TOTAL" -eq 0 ]; then
 		EMPTY_ROUNDS=$((EMPTY_ROUNDS + 1))
+		PREV_TOTAL=-1
+		STABLE_ROUNDS=0
 		echo "Round $i: no external checks registered yet (${EMPTY_ROUNDS} consecutive empty rounds)"
 		if [ "$EMPTY_ROUNDS" -ge 10 ]; then
 			gh pr comment "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" \
@@ -99,10 +111,26 @@ for i in $(seq 1 120); do
 	fi
 
 	if [ "$PENDING" -eq 0 ]; then
-		echo "All checks passed"
-		exit 0
+		# Guard against succeeding on a partial snapshot: require TOTAL to be
+		# stable across two consecutive polls before declaring success. Checks
+		# can register late, so a single all-green poll when TOTAL just
+		# increased may still be missing registrations.
+		if [ "$TOTAL" -eq "$PREV_TOTAL" ]; then
+			STABLE_ROUNDS=$((STABLE_ROUNDS + 1))
+		else
+			STABLE_ROUNDS=0
+		fi
+
+		if [ "$STABLE_ROUNDS" -ge 1 ]; then
+			echo "All checks passed"
+			exit 0
+		fi
+		echo "Round $i: all green but check count changed ($PREV_TOTAL -> $TOTAL), confirming stability"
+	else
+		STABLE_ROUNDS=0
 	fi
 
+	PREV_TOTAL="$TOTAL"
 	sleep 30
 done
 
