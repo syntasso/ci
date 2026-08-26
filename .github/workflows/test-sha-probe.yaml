@@ -1,0 +1,27 @@
+name: Test - SHA Probe (reusable)
+on:
+  workflow_call:
+    outputs:
+      workflow_sha:
+        description: Value of github.workflow_sha inside the called workflow
+        value: ${{ jobs.probe.outputs.workflow_sha }}
+      github_sha:
+        description: Value of github.sha inside the called workflow
+        value: ${{ jobs.probe.outputs.github_sha }}
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    outputs:
+      workflow_sha: ${{ steps.print.outputs.workflow_sha }}
+      github_sha: ${{ steps.print.outputs.github_sha }}
+    steps:
+      - id: print
+        run: |
+          echo "=== SHA values inside the reusable workflow ==="
+          echo "github.workflow_sha  = ${{ github.workflow_sha }}"
+          echo "github.sha           = ${{ github.sha }}"
+          echo "GITHUB_WORKFLOW_SHA  = $GITHUB_WORKFLOW_SHA"
+          echo "GITHUB_SHA           = $GITHUB_SHA"
+          echo "workflow_sha=${{ github.workflow_sha }}" >> "$GITHUB_OUTPUT"
+          echo "github_sha=${{ github.sha }}" >> "$GITHUB_OUTPUT"
