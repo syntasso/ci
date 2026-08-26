@@ -21,9 +21,6 @@ permissions:
   contents: write
   checks: read
   statuses: read
-  # actions: read is required by the fallback polling path to call
-  # /actions/runs?head_sha=<sha> when gh pr checks returns empty results.
-  actions: read
 
 jobs:
   # Scheduled run: find open Dependabot github-actions PRs that have aged

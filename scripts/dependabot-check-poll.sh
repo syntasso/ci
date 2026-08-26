@@ -37,30 +37,34 @@ for i in $(seq 1 120); do
 		# merging on incomplete data (fail-closed on API unavailability).
 		FALLBACK_ERR=false
 
-		# Resolve which GitHub Actions check suites are active for this commit:
-		# one suite per workflow file (latest run_number). This excludes stale
-		# suites from a previous PR open/close cycle while preserving all suites
-		# from distinct workflow files (which share the same GitHub Actions app.id).
-		GA_SUITES=$(gh api --paginate \
-			"repos/$GITHUB_REPOSITORY/actions/runs?head_sha=$PR_HEAD_SHA" \
+		# Identify non-cancelled check suites for this commit. When a PR is
+		# closed and reopened, GitHub cancels the previous workflow runs and
+		# marks their suites conclusion="cancelled". Excluding those suites
+		# drops the stale failed/cancelled runs without needing actions:read.
+		# Multiple distinct workflow files each create their own suite; all
+		# non-cancelled suites are kept so no active workflow is silently dropped.
+		ACTIVE_SUITES=$(gh api --paginate \
+			"repos/$GITHUB_REPOSITORY/commits/$PR_HEAD_SHA/check-suites" \
 			2>/dev/null |
-			jq -s '[[.[].workflow_runs[]] | group_by(.workflow_id)[] | max_by(.run_number) | .check_suite_id]') ||
+			jq -s '[.[].check_suites[]
+			  | select(.conclusion != "cancelled" and .conclusion != "stale")
+			  | .id]') ||
 			FALLBACK_ERR=true
-		GA_SUITES="${GA_SUITES:-[]}"
+		ACTIVE_SUITES="${ACTIVE_SUITES:-[]}"
 
-		# Paginate check-runs. For GitHub Actions, restrict to active suites only.
-		# For other apps, include all runs. Within each (name, suite) pair, keep
-		# the highest-id run — a re-run adds new runs to the same suite, so the
-		# old failed run must be superseded by its successful replacement.
+		# Paginate check-runs filtered to active suites. Within each (name, suite)
+		# pair keep the highest-id run: a re-run adds new check runs to the same
+		# suite (same suite id, new run ids), so max_by(.id) supersedes the old
+		# failed attempt with the latest result.
 		CHECKRUNS=$(gh api --paginate \
 			"repos/$GITHUB_REPOSITORY/commits/$PR_HEAD_SHA/check-runs" \
 			2>/dev/null |
-			jq -s --argjson ga_suites "$GA_SUITES" '[
+			jq -s --argjson active_suites "$ACTIVE_SUITES" '[
 			  [.[].check_runs[]
 			    | select((.name != "auto-merge") and (.name | endswith("/ auto-merge") | not))
 			    | select(
-			        if .app.slug == "github-actions" and ($ga_suites | length) > 0
-			        then (.check_suite.id as $s | ($ga_suites | index($s)) != null)
+			        if ($active_suites | length) > 0
+			        then (.check_suite.id as $s | ($active_suites | index($s)) != null)
 			        else true
 			        end)]
 			  | group_by([.name, .check_suite.id])[]
