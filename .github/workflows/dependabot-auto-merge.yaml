@@ -89,8 +89,12 @@ jobs:
       - name: Checkout ci repo
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          repository: ${{ job.workflow_repository }}
-          ref: ${{ job.workflow_sha }}
+          repository: syntasso/ci
+          # github.workflow_sha in a workflow_call reusable workflow is the SHA
+          # of the called workflow file in syntasso/ci, per GitHub docs. This
+          # ensures callers pinned to a specific ref execute scripts from that
+          # same revision rather than whatever is on the default branch.
+          ref: ${{ github.workflow_sha }}
           path: .ci-scripts
 
       - name: Determine eligibility

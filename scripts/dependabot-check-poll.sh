@@ -38,16 +38,17 @@ for i in $(seq 1 120); do
 		FALLBACK_ERR=false
 
 		# Paginate check-runs so repos with >100 checks are fully covered.
-		# Deduplicate by name keeping the newest run per check identity (highest
-		# id) so a stale failed suite from an older re-push does not block a
-		# merge where the current suite is green.
+		# Deduplicate by [name, app_id] keeping the newest run (highest id) so
+		# a stale failed suite from an older re-push does not block a merge where
+		# the current suite is green. Grouping by both name and app preserves
+		# independent checks that share a name but come from different apps.
 		CHECKRUNS=$(gh api --paginate \
 			"repos/$GITHUB_REPOSITORY/commits/$PR_HEAD_SHA/check-runs" \
 			2>/dev/null |
 			jq -s '[
 			  [.[].check_runs[]
 			    | select((.name != "auto-merge") and (.name | endswith("/ auto-merge") | not))]
-			  | group_by(.name)[]
+			  | group_by([.name, (.app.id // 0)])[]
 			  | max_by(.id)
 			  | {name: .name, state: (if .conclusion != null then (.conclusion | ascii_upcase) else (.status | ascii_upcase) end)}
 			]') ||
