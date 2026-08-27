@@ -162,8 +162,21 @@ run_eligible "headlamp dep" false "" \
 	DEPENDENCY_NAMES=headlamp-plugin \
 	PACKAGE_ECOSYSTEM=npm
 
+# fetch-metadata emits "github_actions" (underscore) — verified live on
+# enterprise-kratix#1401. The hyphen form is what dependabot.yml config uses;
+# the script normalises so both trigger the age gate.
+
 # github-actions patch, commit date API returns empty (race condition) — must age-gate
 run_eligible "github-actions: commit API empty → age-gate" false "actions-age-wait" \
+	UPDATE_TYPE=version-update:semver-patch \
+	PREV_VERSION=4.2.0 \
+	NEW_VERSION=4.3.0 \
+	DEPENDENCY_NAMES=docker/setup-buildx-action \
+	PACKAGE_ECOSYSTEM=github_actions \
+	GH_MOCK_DATE=""
+
+# hyphen form (dependabot.yml spelling) must also age-gate via normalisation
+run_eligible "github-actions: hyphen ecosystem form → age-gate" false "actions-age-wait" \
 	UPDATE_TYPE=version-update:semver-patch \
 	PREV_VERSION=4.2.0 \
 	NEW_VERSION=4.3.0 \
@@ -180,7 +193,7 @@ if [[ -n "$ZERO_DAYS_AGO" ]]; then
 		PREV_VERSION=4.2.0 \
 		NEW_VERSION=4.3.0 \
 		DEPENDENCY_NAMES=docker/setup-buildx-action \
-		PACKAGE_ECOSYSTEM=github-actions \
+		PACKAGE_ECOSYSTEM=github_actions \
 		GH_MOCK_DATE="$ZERO_DAYS_AGO"
 else
 	echo "SKIP [github-actions: 0 days old → age-gate]: date command not portable on this OS"
@@ -195,7 +208,7 @@ if [[ -n "$FOUR_DAYS_AGO" ]]; then
 		PREV_VERSION=4.2.0 \
 		NEW_VERSION=4.3.0 \
 		DEPENDENCY_NAMES=docker/setup-buildx-action \
-		PACKAGE_ECOSYSTEM=github-actions \
+		PACKAGE_ECOSYSTEM=github_actions \
 		GH_MOCK_DATE="$FOUR_DAYS_AGO"
 else
 	echo "SKIP [github-actions: 4 days old → age-gate]: date command not portable on this OS"
@@ -210,7 +223,7 @@ if [[ -n "$FIVE_DAYS_AGO" ]]; then
 		PREV_VERSION=4.2.0 \
 		NEW_VERSION=4.3.0 \
 		DEPENDENCY_NAMES=docker/setup-buildx-action \
-		PACKAGE_ECOSYSTEM=github-actions \
+		PACKAGE_ECOSYSTEM=github_actions \
 		GH_MOCK_DATE="$FIVE_DAYS_AGO"
 else
 	echo "SKIP [github-actions: 5 days old → eligible]: date command not portable on this OS"
@@ -223,7 +236,7 @@ run_eligible "github-actions: major → blocked before age gate" false "" \
 	PREV_VERSION=3.0.0 \
 	NEW_VERSION=4.0.0 \
 	DEPENDENCY_NAMES=actions/checkout \
-	PACKAGE_ECOSYSTEM=github-actions \
+	PACKAGE_ECOSYSTEM=github_actions \
 	GH_MOCK_DATE=""
 
 # npm patch (non-special ecosystem) — should auto-merge
