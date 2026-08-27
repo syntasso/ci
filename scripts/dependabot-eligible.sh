@@ -63,7 +63,11 @@ if [[ "$TYPE" != "version-update:semver-patch" && "$TYPE" != "version-update:sem
 	exit 0
 fi
 
-if [[ "$ECOSYSTEM" == "github-actions" ]]; then
+# fetch-metadata emits "github_actions" (underscore), while dependabot.yml
+# config uses "github-actions" (hyphen). Normalise so the age gate matches
+# either form — the hyphen comparison alone never matched, silently
+# disabling the gate (verified live on enterprise-kratix#1401).
+if [[ "${ECOSYSTEM//-/_}" == "github_actions" ]]; then
 	MIN_AGE_DAYS=5
 	NOW=$(date +%s)
 	# Age from the head commit, not PR creation — a synchronize push with a new
