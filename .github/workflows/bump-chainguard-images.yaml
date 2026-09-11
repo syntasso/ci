@@ -62,27 +62,19 @@ jobs:
       - name: Bump SKE dockerfile base images to latest Chainguard SHA
         working-directory: enterprise-kratix
         run: |
-          # Find every Dockerfile that uses a Chainguard base image, so a new
-          # project is picked up without editing this list. Skip the
-          # read-only-kratix submodule, the vendored headlamp tree and the CLI
-          # test fixtures, because we do not own those Dockerfiles.
-          mapfile -t dockerfiles < <(grep -rIl 'cgr.dev/chainguard' --include='Dockerfile*' . \
-            | sed 's|^\./||' \
-            | grep -v -e '^read-only-kratix/' -e '/node_modules/' \
-                      -e '^headlamp-ske/headlamp/' -e '^cli-plugins/' \
-            | sort)
-
-          if [[ ${#dockerfiles[@]} -eq 0 ]]; then
-            echo "Found no Dockerfiles using a Chainguard base image. This is unexpected, failing."
-            exit 1
-          fi
-
-          echo "Bumping ${#dockerfiles[@]} Dockerfiles:"
-          printf '  %s\n' "${dockerfiles[@]}"
-
-          for dockerfile in "${dockerfiles[@]}"; do
-            ./scripts/bump-dockerfile-to-latest-chainguard-sha $latest_wolfi $latest_static $latest_gitbase $latest_golang "$dockerfile"
-          done
+          ./scripts/bump-dockerfile-to-latest-chainguard-sha $latest_wolfi $latest_static $latest_gitbase $latest_golang Dockerfile.ske-platform
+          ./scripts/bump-dockerfile-to-latest-chainguard-sha $latest_wolfi $latest_static $latest_gitbase $latest_golang Dockerfile.ske-quick-start-installer
+          ./scripts/bump-dockerfile-to-latest-chainguard-sha $latest_wolfi $latest_static $latest_gitbase $latest_golang backstage-controller/Dockerfile
+          ./scripts/bump-dockerfile-to-latest-chainguard-sha $latest_wolfi $latest_static $latest_gitbase $latest_golang backstage-controller/ske-backstage-generator/Dockerfile
+          ./scripts/bump-dockerfile-to-latest-chainguard-sha $latest_wolfi $latest_static $latest_gitbase $latest_golang headlamp-ske/Dockerfile
+          ./scripts/bump-dockerfile-to-latest-chainguard-sha $latest_wolfi $latest_static $latest_gitbase $latest_golang k8s-health-agent/Dockerfile
+          ./scripts/bump-dockerfile-to-latest-chainguard-sha $latest_wolfi $latest_static $latest_gitbase $latest_golang k8s-health-agent/healthcheck-adapter/Dockerfile
+          ./scripts/bump-dockerfile-to-latest-chainguard-sha $latest_wolfi $latest_static $latest_gitbase $latest_golang ske-cortex-controller/Dockerfile
+          ./scripts/bump-dockerfile-to-latest-chainguard-sha $latest_wolfi $latest_static $latest_gitbase $latest_golang ske-operator/Dockerfile
+          ./scripts/bump-dockerfile-to-latest-chainguard-sha $latest_wolfi $latest_static $latest_gitbase $latest_golang ske-platform-manager/Dockerfile
+          ./scripts/bump-dockerfile-to-latest-chainguard-sha $latest_wolfi $latest_static $latest_gitbase $latest_golang ske-portal-controller/Dockerfile
+          ./scripts/bump-dockerfile-to-latest-chainguard-sha $latest_wolfi $latest_static $latest_gitbase $latest_golang ske-portal-controller/portal-patch/Dockerfile
+          ./scripts/bump-dockerfile-to-latest-chainguard-sha $latest_wolfi $latest_static $latest_gitbase $latest_golang ske-portal-controller/ske-portal-adapter/Dockerfile
 
           git config user.name "syntassodev"
           git config user.email "kratix@syntasso.io"
