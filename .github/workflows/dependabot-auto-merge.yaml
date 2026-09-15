@@ -73,12 +73,28 @@ jobs:
             # Pin to the exact commit that passed the age and CI checks above —
             # a synchronize landing in between must not let a fresh, unvetted
             # commit ride through on the old checks.
-            gh pr merge "$NUMBER" \
-              --repo ${{ github.repository }} \
-              --squash \
-              --delete-branch \
-              --match-head-commit "$HEAD_SHA" \
-              2>&1 || echo "  → Merge failed (might need workflow scope, or head moved)"
+            #
+            # Retry a few times: "Base branch was modified" is a transient
+            # GitHub API race (another PR merging to main around the same
+            # time), not a sign the head commit is stale. A real head-SHA
+            # mismatch fails --match-head-commit every time, so it still
+            # falls through after the retries.
+            MERGED=false
+            for attempt in 1 2 3; do
+              if gh pr merge "$NUMBER" \
+                --repo ${{ github.repository }} \
+                --squash \
+                --delete-branch \
+                --match-head-commit "$HEAD_SHA"; then
+                MERGED=true
+                break
+              fi
+              echo "  → Merge attempt $attempt failed, retrying in 10s"
+              sleep 10
+            done
+            if [[ "$MERGED" != "true" ]]; then
+              echo "  → Merge failed after 3 attempts (might need workflow scope, or head moved)"
+            fi
           done
 
   auto-merge:
@@ -190,11 +206,34 @@ jobs:
           echo "Auto-merging: ${{ steps.eligible.outputs.reason }}"
           # Pin to the head that was actually age/CI-checked — a push landing
           # between the check and this step must not ride through unvetted.
-          gh pr merge ${{ github.event.pull_request.number }} \
-            --repo ${{ github.repository }} \
-            --squash \
-            --delete-branch \
-            --match-head-commit "${{ github.event.pull_request.head.sha }}"
+          #
+          # Retry a few times: "Base branch was modified" is a transient
+          # GitHub API race (another PR merging to main around the same
+          # time), not a sign the head commit is stale. A real head-SHA
+          # mismatch fails --match-head-commit every time, so it still
+          # fails the step after the retries.
+          for attempt in 1 2 3; do
+            # Re-read the hold on every attempt, not just once before the loop —
+            # a maintainer can add requires-human-review during the 10s backoff,
+            # and a later attempt must not merge through that.
+            LABELS=$(gh pr view ${{ github.event.pull_request.number }} \
+              --repo ${{ github.repository }} --json labels --jq '[.labels[].name]')
+            if echo "$LABELS" | jq -e 'index("requires-human-review")' > /dev/null; then
+              echo "requires-human-review was added mid-retry — aborting auto-merge"
+              exit 1
+            fi
+            if gh pr merge ${{ github.event.pull_request.number }} \
+              --repo ${{ github.repository }} \
+              --squash \
+              --delete-branch \
+              --match-head-commit "${{ github.event.pull_request.head.sha }}"; then
+              exit 0
+            fi
+            echo "Merge attempt $attempt failed, retrying in 10s"
+            sleep 10
+          done
+          echo "Merge failed after 3 attempts"
+          exit 1
 
       - name: Step summary
         if: always()
