@@ -69,7 +69,9 @@ jobs:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         with:
           image: ghcr.io/syntasso/ske-platform:$NEW_TAG
-          args: --severity-threshold=high --username=syntassodev --password=${{ secrets.GHCR_TOKEN }}
+          # --policy-path is required for docker scans: unlike golang scans,
+          # they do not pick up the checkout's .snyk ignores from the cwd.
+          args: --severity-threshold=high --policy-path=.snyk --username=syntassodev --password=${{ secrets.GHCR_TOKEN }}
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3
         with:
