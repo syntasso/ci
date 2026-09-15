@@ -213,6 +213,15 @@ jobs:
           # mismatch fails --match-head-commit every time, so it still
           # fails the step after the retries.
           for attempt in 1 2 3; do
+            # Re-read the hold on every attempt, not just once before the loop —
+            # a maintainer can add requires-human-review during the 10s backoff,
+            # and a later attempt must not merge through that.
+            LABELS=$(gh pr view ${{ github.event.pull_request.number }} \
+              --repo ${{ github.repository }} --json labels --jq '[.labels[].name]')
+            if echo "$LABELS" | jq -e 'index("requires-human-review")' > /dev/null; then
+              echo "requires-human-review was added mid-retry — aborting auto-merge"
+              exit 1
+            fi
             if gh pr merge ${{ github.event.pull_request.number }} \
               --repo ${{ github.repository }} \
               --squash \
