@@ -1,0 +1,35 @@
+name: Dependabot Auto-merge (self)
+
+# This repo hosts the reusable dependabot-auto-merge.yaml workflow that every
+# other repo calls, but never called it on its own Dependabot PRs — they only
+# ever got a CLA check. This file is the caller for this repo's own PRs.
+#
+# Filename must differ from dependabot-auto-merge.yaml (the reusable
+# definition itself) to avoid a name collision.
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened]
+  # Re-run daily so github-actions PRs blocked by the age requirement get
+  # picked up automatically once they are old enough.
+  schedule:
+    - cron: '0 9 * * *'
+
+permissions:
+  pull-requests: write
+  # PR label add/remove goes through the Issues API even on a pull request.
+  issues: write
+  contents: write
+  checks: read
+  statuses: read
+
+jobs:
+  dependabot-auto-merge:
+    uses: syntasso/ci/.github/workflows/dependabot-auto-merge.yaml@54007329cdcb283e1d830d7305e5d34549eecee2 # main
+    with:
+      # Must match the SHA on the uses: line above.
+      scripts_ref: 54007329cdcb283e1d830d7305e5d34549eecee2
+    secrets:
+      repo_token: ${{ secrets.GITHUB_TOKEN }}
+      # No elevated merge token needed in this repo — GITHUB_TOKEN can merge directly.
+      gh_action_trigger_token: ${{ secrets.GITHUB_TOKEN }}
