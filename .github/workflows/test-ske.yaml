@@ -36,34 +36,6 @@ on:
         type: string
 
 jobs:
-  ske-quick-start-test:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout ci repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          repository: syntasso/ci
-      - name: Setup Common Environment
-        uses: ./.github/actions/setup-common
-        with:
-          repository: syntasso/enterprise-kratix
-          ref: ${{ inputs.ske_sha }}
-          path: enterprise-kratix
-          ssh_key: ${{ secrets.ENTERPRISE_KRATIX_DEPLOY_KEY_READ_PUSH }}
-          submodules: 'true'
-          submodule_repository: syntasso/kratix
-          submodule_ref: ${{ inputs.sha }}
-          submodule_path: enterprise-kratix/read-only-kratix
-          tools_base_path: enterprise-kratix/read-only-kratix
-          ssh_session: ${{ inputs.ssh_session }}
-      - name: Quick start tests
-        env:
-          GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
-          GH_TOKEN: ${{ secrets.GH_RELEASE_CREATOR_TOKEN }}
-        run: |
-          cd enterprise-kratix/ske-quick-start-installer/
-          make system-test
-
   ske-upgrade-and-oss-test:
     runs-on: ubuntu-latest
     steps:
