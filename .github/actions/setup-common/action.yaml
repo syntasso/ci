@@ -78,6 +78,19 @@ runs:
         check-latest: true
         cache-dependency-path: ${{ inputs.path }}/go.sum
 
+    # ske-platform-manager resolves kratix through a directory replace onto
+    # read-only-kratix, so pointing that directory at a different kratix commit
+    # leaves its go.mod stale and the default -mod=readonly build refuses to run.
+    # Throwaway: the runner's copy is tidied, nothing is committed.
+    - name: Sync ske-platform-manager go.mod to the kratix under test
+      if: "${{ inputs.submodule_repository != '' && inputs.submodule_ref != '' }}"
+      shell: bash
+      run: |
+        dir="${{ inputs.path }}/ske-platform-manager"
+        [ -d "$dir" ] || exit 0
+        cd "$dir"
+        go mod tidy
+
     - name: Prepare cache control variables
       shell: bash
       run: |
