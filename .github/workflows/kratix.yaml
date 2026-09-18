@@ -118,6 +118,11 @@ jobs:
           repository: syntasso/enterprise-kratix
           submodules: recursive
           ssh-key: ${{ secrets.ENTERPRISE_KRATIX_DEPLOY_KEY_READ_PUSH }}
+      - name: Install Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: 1.27
+          check-latest: true
       - name: update-read-only-kratix
         env:
           KRATIX_COMMIT_SHA: ${{ github.event.inputs.sha }}
@@ -131,7 +136,13 @@ jobs:
             echo "no changes to commit; exiting"
             exit 0
           fi
-          git add read-only-kratix
+          # ske-platform-manager reaches kratix through a directory replace onto
+          # read-only-kratix, so its go.mod is only valid for the commit the
+          # submodule points at. Move them together or the next run starts red.
+          pushd ske-platform-manager
+            go mod tidy
+          popd
+          git add read-only-kratix ske-platform-manager/go.mod ske-platform-manager/go.sum
           git commit -m "from test-ske workflow: pushing read-only-kratix at ${KRATIX_COMMIT_SHA} [skip ci]"
           git push origin main
 
