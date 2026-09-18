@@ -5,7 +5,6 @@ on:
 
 env:
   SKE_PLATFORM_IMG: "ghcr.io/syntasso/ske-platform"
-  SKE_QUICK_START_INSTALLER_IMG: "ghcr.io/syntasso/ske-quick-start-installer"
 
 jobs:
   promote-pre-release:
@@ -48,24 +47,17 @@ jobs:
           fi
 
           platform_exists=0
-          installer_exists=0
 
           if docker buildx imagetools inspect "${SKE_PLATFORM_IMG}:${LATEST_RELEASE_TAG}" >/dev/null 2>&1; then
             platform_exists=1
           fi
-          if docker buildx imagetools inspect "${SKE_QUICK_START_INSTALLER_IMG}:${LATEST_RELEASE_TAG}" >/dev/null 2>&1; then
-            installer_exists=1
-          fi
 
-          if [[ "${platform_exists}" -eq 1 && "${installer_exists}" -eq 1 ]]; then
-            echo "Release images already exist for ${LATEST_RELEASE_TAG}; skipping retag."
+          if [[ "${platform_exists}" -eq 1 ]]; then
+            echo "Release image already exists for ${LATEST_RELEASE_TAG}; skipping retag."
             echo "SKIP_RETAG=true" >> "$GITHUB_ENV"
-          elif [[ "${platform_exists}" -eq 0 && "${installer_exists}" -eq 0 ]]; then
-            echo "Release images do not exist yet; retag is required."
-            echo "SKIP_RETAG=false" >> "$GITHUB_ENV"
           else
-            echo "Partial image state detected for ${LATEST_RELEASE_TAG}; refusing to continue."
-            exit 1
+            echo "Release image does not exist yet; retag is required."
+            echo "SKIP_RETAG=false" >> "$GITHUB_ENV"
           fi
       - name: Verify release images
         run: |
@@ -82,7 +74,7 @@ jobs:
           GH_TOKEN: ${{ secrets.ENTERPRISE_KRATIX_GH_TOKEN }}
         run: |
           gh release download --repo syntasso/enterprise-kratix "$LATEST_PRE_RELEASE_TAG" \
-            --pattern ske-distribution.yaml --pattern ske-quick-start-installer.yaml
+            --pattern ske-distribution.yaml
           sed -i "s/${LATEST_PRE_RELEASE_TAG}/${LATEST_RELEASE_TAG}/g" ske-distribution.yaml
           TAG="${LATEST_RELEASE_TAG}" make sbom
       - name: Re-tag SKE artifacts to full release

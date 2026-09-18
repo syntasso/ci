@@ -63,7 +63,6 @@ jobs:
         working-directory: enterprise-kratix
         run: |
           ./scripts/bump-dockerfile-to-latest-chainguard-sha $latest_wolfi $latest_static $latest_gitbase $latest_golang Dockerfile.ske-platform
-          ./scripts/bump-dockerfile-to-latest-chainguard-sha $latest_wolfi $latest_static $latest_gitbase $latest_golang Dockerfile.ske-quick-start-installer
           ./scripts/bump-dockerfile-to-latest-chainguard-sha $latest_wolfi $latest_static $latest_gitbase $latest_golang backstage-controller/Dockerfile
           ./scripts/bump-dockerfile-to-latest-chainguard-sha $latest_wolfi $latest_static $latest_gitbase $latest_golang backstage-controller/ske-backstage-generator/Dockerfile
           ./scripts/bump-dockerfile-to-latest-chainguard-sha $latest_wolfi $latest_static $latest_gitbase $latest_golang headlamp-ske/Dockerfile
