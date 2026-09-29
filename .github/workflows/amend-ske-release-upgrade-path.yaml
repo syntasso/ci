@@ -1,0 +1,36 @@
+name: Amend SKE Release Upgrade Path
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'published SKE release to amend, e.g. v0.13.0'
+        type: string
+        required: true
+      upgrade-paths:
+        description: 'versions to add to upgrade_path, comma or space separated, e.g. "v0.11.0, v0.10.0"'
+        type: string
+        required: true
+
+jobs:
+  amend-upgrade-path:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out ci
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          aws-region: eu-west-2
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      - name: Amend release metadata upgrade path
+        env:
+          GH_TOKEN: ${{ secrets.ENTERPRISE_KRATIX_GH_TOKEN }}
+          TAG: ${{ inputs.tag }}
+          UPGRADE_PATHS: ${{ inputs.upgrade-paths }}
+        run: |
+          ./scripts/amend-release-upgrade-path.sh
+          echo '```json' >> "$GITHUB_STEP_SUMMARY"
+          aws s3 cp "s3://syntasso-enterprise-releases/ske/${TAG}/release-metadata.json" - >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
