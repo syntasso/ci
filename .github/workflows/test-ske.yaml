@@ -230,7 +230,7 @@ jobs:
           DOCKER_BUILDKIT: "1"
 
   ske-platform-manager-health-agent-test:
-    runs-on: ubuntu-latest
+    runs-on: sprinters:aws:t3.2xlarge:ubuntu-latest:temp=64/gp3/max/max
     steps:
       - name: Checkout ci repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
