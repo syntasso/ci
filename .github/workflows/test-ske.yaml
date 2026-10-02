@@ -211,9 +211,6 @@ jobs:
           submodule_path: enterprise-kratix/read-only-kratix
           tools_base_path: enterprise-kratix/read-only-kratix
           ssh_session: ${{ inputs.ssh_session }}
-      # setup-env runs the root quick-start, whose submodule-sync resets read-only-kratix
-      # to the commit enterprise-kratix pins. Staging the kratix under test as the
-      # gitlink makes that sync keep it. Throwaway: nothing is committed.
       - name: Pin read-only-kratix to the kratix under test
         run: |
           cd enterprise-kratix
@@ -252,9 +249,6 @@ jobs:
           submodule_path: enterprise-kratix/read-only-kratix
           tools_base_path: enterprise-kratix/read-only-kratix
           ssh_session: ${{ inputs.ssh_session }}
-      # setup-env runs the root quick-start, whose submodule-sync resets read-only-kratix
-      # to the commit enterprise-kratix pins. Staging the kratix under test as the
-      # gitlink makes that sync keep it. Throwaway: nothing is committed.
       - name: Pin read-only-kratix to the kratix under test
         run: |
           cd enterprise-kratix
