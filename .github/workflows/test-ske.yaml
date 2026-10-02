@@ -165,3 +165,81 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GHCR_TOKEN }}
           SKE_LICENSE_TOKEN: ${{ secrets.SKE_LICENSE_TOKEN }}
+
+  ske-platform-manager-system-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout ci repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: syntasso/ci
+      - name: Setup Common Environment
+        uses: ./.github/actions/setup-common
+        with:
+          repository: syntasso/enterprise-kratix
+          ref: ${{ inputs.ske_sha }}
+          path: enterprise-kratix
+          ssh_key: ${{ secrets.ENTERPRISE_KRATIX_DEPLOY_KEY_READ_PUSH }}
+          submodules: 'true'
+          submodule_repository: syntasso/kratix
+          submodule_ref: ${{ inputs.sha }}
+          submodule_path: enterprise-kratix/read-only-kratix
+          tools_base_path: enterprise-kratix/read-only-kratix
+          ssh_session: ${{ inputs.ssh_session }}
+      - name: Pin read-only-kratix to the kratix under test
+        run: |
+          cd enterprise-kratix
+          git update-index --cacheinfo "160000,$(git -C read-only-kratix rev-parse HEAD),read-only-kratix"
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - name: Login to ghcr
+        run: |
+          echo "${{ secrets.GHCR_TOKEN }}" | docker login ghcr.io -u syntassodev --password-stdin
+      - name: Run make test-e2e
+        run: |
+          cd enterprise-kratix/ske-platform-manager
+          make test-e2e
+        env:
+          SKE_LICENSE_TOKEN: ${{ secrets.SKE_LICENSE_TOKEN }}
+          GH_TOKEN: ${{ secrets.ENTERPRISE_KRATIX_GH_TOKEN }}
+          DOCKER_BUILDKIT: "1"
+
+  ske-platform-manager-health-agent-test:
+    runs-on: sprinters:aws:t3.2xlarge:ubuntu-latest:temp=64/gp3/max/max
+    steps:
+      - name: Checkout ci repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: syntasso/ci
+      - name: Setup Common Environment
+        uses: ./.github/actions/setup-common
+        with:
+          repository: syntasso/enterprise-kratix
+          ref: ${{ inputs.ske_sha }}
+          path: enterprise-kratix
+          ssh_key: ${{ secrets.ENTERPRISE_KRATIX_DEPLOY_KEY_READ_PUSH }}
+          submodules: 'true'
+          submodule_repository: syntasso/kratix
+          submodule_ref: ${{ inputs.sha }}
+          submodule_path: enterprise-kratix/read-only-kratix
+          tools_base_path: enterprise-kratix/read-only-kratix
+          ssh_session: ${{ inputs.ssh_session }}
+      - name: Pin read-only-kratix to the kratix under test
+        run: |
+          cd enterprise-kratix
+          git update-index --cacheinfo "160000,$(git -C read-only-kratix rev-parse HEAD),read-only-kratix"
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - name: Login to ghcr
+        run: |
+          echo "${{ secrets.GHCR_TOKEN }}" | docker login ghcr.io -u syntassodev --password-stdin
+      - name: Run the reader's blob-store specs
+        run: make -C enterprise-kratix/ske-platform-manager test-blobstore
+      - name: Run make test-e2e-health-agent
+        run: |
+          cd enterprise-kratix/ske-platform-manager
+          make test-e2e-health-agent
+        env:
+          SKE_LICENSE_TOKEN: ${{ secrets.SKE_LICENSE_TOKEN }}
+          GH_TOKEN: ${{ secrets.ENTERPRISE_KRATIX_GH_TOKEN }}
+          DOCKER_BUILDKIT: "1"
