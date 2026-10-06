@@ -71,6 +71,12 @@ runs:
         limit-access-to-actor: true
         detached: true
 
+    # Fetch a Go module straight from its source if the proxy errors, not only on a 404.
+    # Written to GITHUB_ENV so every later step in the calling job gets it too.
+    - name: Fall back to direct module fetches when the Go proxy errors
+      shell: bash
+      run: echo 'GOPROXY=https://proxy.golang.org|direct' >> "$GITHUB_ENV"
+
     - name: Install Go
       uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
       with:
