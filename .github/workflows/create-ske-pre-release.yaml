@@ -86,6 +86,8 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.ENTERPRISE_KRATIX_GH_TOKEN }}
           PRE_RELEASE: true
+          # Go binaries don't record module licences, so look them up via the Go module proxy
+          SYFT_GOLANG_SEARCH_REMOTE_LICENSES: "true"
       - name: Generate changelog
         run: |
           git fetch --tags
