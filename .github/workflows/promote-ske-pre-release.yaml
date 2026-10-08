@@ -5,6 +5,8 @@ on:
 
 env:
   SKE_PLATFORM_IMG: "ghcr.io/syntasso/ske-platform"
+  # Go binaries don't record module licences, so look them up via the Go module proxy
+  SYFT_GOLANG_SEARCH_REMOTE_LICENSES: "true"
 
 jobs:
   promote-pre-release:
