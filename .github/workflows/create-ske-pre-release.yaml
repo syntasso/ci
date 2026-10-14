@@ -32,7 +32,7 @@ jobs:
           version: 29.1.5
       - name: Snyk golang scan on kratix
         if: ${{ !inputs.skip-security-scan }}
-        uses: snyk/actions/golang@12140f4059e244892ae643824a95459a102120dd # master (no stable release)
+        uses: snyk/actions/golang@11b673cfb4b0dc0d860a1323caa199d54950dcce # master (no stable release)
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
           DOCKER_API_VERSION: "1.48"
