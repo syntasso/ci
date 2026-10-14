@@ -63,7 +63,7 @@ jobs:
           fi
           echo "NEW_TAG=$new_tag" >> "$GITHUB_ENV"
       - name: Snyk image scan on kratix
-        uses: snyk/actions/docker@12140f4059e244892ae643824a95459a102120dd # master (no stable release)
+        uses: snyk/actions/docker@11b673cfb4b0dc0d860a1323caa199d54950dcce # master (no stable release)
         if: ${{ !inputs.skip-security-scan }}
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
