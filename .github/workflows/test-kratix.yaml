@@ -137,7 +137,7 @@ jobs:
           ssh_session: ${{ github.event.inputs.ssh_session }}
 
       - name: Download quick-start installer image artifact
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: quick-start-installer-image-${{ github.run_id }}
           path: ${{ runner.temp }}/quick-start-installer-image
@@ -148,7 +148,7 @@ jobs:
           docker load -i "${image_tar}"
 
       - name: Download Kratix image artifact
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: kratix-image-${{ github.run_id }}
           path: ${{ runner.temp }}/kratix-image
@@ -207,7 +207,7 @@ jobs:
           ssh_session: ${{ github.event.inputs.ssh_session }}
 
       - name: Download quick-start installer image artifact
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: quick-start-installer-image-${{ github.run_id }}
           path: ${{ runner.temp }}/quick-start-installer-image
@@ -218,7 +218,7 @@ jobs:
           docker load -i "${image_tar}"
 
       - name: Download Kratix image artifact
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: kratix-image-${{ github.run_id }}
           path: ${{ runner.temp }}/kratix-image
@@ -275,7 +275,7 @@ jobs:
           ssh_session: ${{ github.event.inputs.ssh_session }}
 
       - name: Download Kratix image artifact
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: kratix-image-${{ github.run_id }}
           path: ${{ runner.temp }}/kratix-image
@@ -331,7 +331,7 @@ jobs:
           ssh_session: ${{ github.event.inputs.ssh_session }}
 
       - name: Download Kratix image artifact
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: kratix-image-${{ github.run_id }}
           path: ${{ runner.temp }}/kratix-image
@@ -374,7 +374,7 @@ jobs:
           ssh_session: ${{ github.event.inputs.ssh_session }}
 
       - name: Download Kratix image artifact
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: kratix-image-${{ github.run_id }}
           path: ${{ runner.temp }}/kratix-image
