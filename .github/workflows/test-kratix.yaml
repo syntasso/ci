@@ -83,7 +83,7 @@ jobs:
           echo "EXPORT_IMAGE_TAR=${EXPORT_IMAGE_TAR}" >> "${GITHUB_ENV}"
 
       - name: Upload Kratix image artifact
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: kratix-image-${{ github.run_id }}
           path: ${{ env.EXPORT_IMAGE_TAR }}
@@ -113,7 +113,7 @@ jobs:
           echo "QUICK_START_INSTALLER_TAR=${QUICK_START_INSTALLER_TAR}" >> "${GITHUB_ENV}"
 
       - name: Upload quick-start installer image artifact
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: quick-start-installer-image-${{ github.run_id }}
           path: ${{ env.QUICK_START_INSTALLER_TAR }}
@@ -251,7 +251,7 @@ jobs:
 
       - name: Gather controller logs and statuses
         if: ${{ always() && steps.system_tests.outcome == 'failure' }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: ${{ matrix.flags.name }}-${{ matrix.shard.name }}-system-test-debug-report
           path: output/debug-test
@@ -307,7 +307,7 @@ jobs:
           fi
       - name: Gather controller logs and statuses
         if: ${{ always() && steps.core_tests.outcome == 'failure' }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: core-test-debug-report
           path: output/debug-test
