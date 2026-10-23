@@ -1,0 +1,405 @@
+name: Experiment - Release notes PR
+
+# Part of the automated releases experiment (syntasso/enterprise-kratix#1679).
+#
+# Opens the release notes PR in the docs repo for a component release. Run it on a schedule.
+# Each run looks at the oldest release that has no notes PR yet:
+#
+#   1. It waits until a chart release ships that version (for example the SKE Operator
+#      Helm Chart), because each entry says which chart version it was released in.
+#   2. It collects the release-note block from every PR in the release.
+#   3. It writes the entry at the top of the release notes page and opens a PR.
+#
+# It opens one PR at a time. The next release waits until the last notes PR is merged,
+# so the PRs never conflict with each other.
+#
+# Call it with `secrets: inherit`. It uses RELEASE_PLEASE_TOKEN (so the docs PR starts the
+# docs build) and EXPERIMENT_RELEASES_SLACK_WEBHOOK_URL.
+
+on:
+  workflow_call:
+    inputs:
+      component:
+        description: The release-please component, e.g. ske-portal-controller
+        type: string
+        required: true
+      path:
+        description: The component folder. Only PRs that change it are included, e.g. ske-portal-controller/
+        type: string
+        required: true
+      display-name:
+        description: The name used in the docs, e.g. Portal Controller
+        type: string
+        required: true
+      first-version:
+        description: Ignore releases older than this version (they already have notes), e.g. 0.8.1
+        type: string
+        required: true
+      bot-authors:
+        description: PR authors whose PRs get the dependency line, one per line. GitHub App bots are always included.
+        type: string
+        default: syntassodev
+      release-url-base:
+        description: Release links are this, then <component>/v<version>/
+        type: string
+        required: true
+      docs-repo:
+        description: The docs repo, e.g. syntasso/kratix-docs
+        type: string
+        required: true
+      docs-file:
+        description: The release notes page in the docs repo. It must have a "## Release Notes" heading.
+        type: string
+        required: true
+      docs-scope:
+        description: The commit scope in the PR title, e.g. ske
+        type: string
+        required: true
+      docs-label:
+        description: The label to add to the PR, e.g. ske-portal-controller-next
+        type: string
+        required: true
+      chart-repo:
+        description: The repo the chart is released from, e.g. syntasso/helm-charts
+        type: string
+        required: true
+      chart-tag-prefix:
+        description: Chart release tags are this, then the chart version, e.g. ske-operator-v
+        type: string
+        required: true
+      chart-values-file:
+        description: The values file in the chart repo, e.g. ske-operator/values.yaml
+        type: string
+        required: true
+      chart-version-key:
+        description: The yq path to the component version in the values file, e.g. .portalIntegration.version
+        type: string
+        required: true
+      chart-name:
+        description: The chart name used in the docs, e.g. SKE Operator Helm Chart
+        type: string
+        required: true
+      chart-url-base:
+        description: Chart links are this, then <chart version>/
+        type: string
+        required: true
+      max-wait-hours:
+        description: Fail when a release has waited longer than this for a chart release
+        type: number
+        default: 24
+
+jobs:
+  notes:
+    name: Open the release notes PR
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    concurrency:
+      group: experiment-release-notes-pr-${{ inputs.component }}
+      cancel-in-progress: false
+    env:
+      COMPONENT: ${{ inputs.component }}
+      GH_TOKEN: ${{ secrets.RELEASE_PLEASE_TOKEN }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Find the oldest release without a notes PR
+        id: release
+        env:
+          FIRST_VERSION: ${{ inputs.first-version }}
+          DOCS_REPO: ${{ inputs.docs-repo }}
+        run: |
+          version_is_older() {
+            [ "$1" != "$2" ] && [ "$(printf '%s\n%s\n' "$1" "$2" | sort -V | head -1)" = "$1" ]
+          }
+
+          previous_tag=""
+          for tag in $(git tag --list "$COMPONENT-v*" --sort=v:refname); do
+            version="${tag#"$COMPONENT"-v}"
+            if version_is_older "$version" "$FIRST_VERSION"; then
+              previous_tag="$tag"
+              continue
+            fi
+
+            branch="release-notes/$COMPONENT-v$version"
+            notes_pr_state=$(gh pr list --repo "$DOCS_REPO" --head "$branch" --state all --json state --jq '.[0].state // empty')
+            if [ "$notes_pr_state" = "MERGED" ] || [ "$notes_pr_state" = "CLOSED" ]; then
+              previous_tag="$tag"
+              continue
+            fi
+            if [ "$notes_pr_state" = "OPEN" ]; then
+              echo "The notes PR for v$version is still open. The next release waits until it is merged."
+              echo "summary=waiting for the v$version notes PR to merge" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+
+            echo "v$version needs a notes PR. The release before it is ${previous_tag:-none}."
+            {
+              echo "version=$version"
+              echo "tag=$tag"
+              echo "previous-tag=$previous_tag"
+              echo "branch=$branch"
+            } >> "$GITHUB_OUTPUT"
+            exit 0
+          done
+
+          echo "Every release has a notes PR."
+          echo "summary=nothing to do" >> "$GITHUB_OUTPUT"
+
+      - name: Find the chart release that ships it
+        id: chart
+        if: steps.release.outputs.version != ''
+        env:
+          VERSION: ${{ steps.release.outputs.version }}
+          TAG: ${{ steps.release.outputs.tag }}
+          CHART_REPO: ${{ inputs.chart-repo }}
+          CHART_TAG_PREFIX: ${{ inputs.chart-tag-prefix }}
+          CHART_VALUES_FILE: ${{ inputs.chart-values-file }}
+          CHART_VERSION_KEY: ${{ inputs.chart-version-key }}
+          MAX_WAIT_HOURS: ${{ inputs.max-wait-hours }}
+        run: |
+          version_is_older() {
+            [ "$1" != "$2" ] && [ "$(printf '%s\n%s\n' "$1" "$2" | sort -V | head -1)" = "$1" ]
+          }
+
+          # Walk the chart releases from newest to oldest. The chart we want is the oldest one
+          # that ships this version or a newer one.
+          chart_version=""
+          for chart_tag in $(gh api --paginate "repos/$CHART_REPO/git/matching-refs/tags/$CHART_TAG_PREFIX" \
+              --jq '.[].ref | sub("^refs/tags/"; "")' | sort -V -r); do
+            shipped=$(gh api -H "Accept: application/vnd.github.raw" \
+              "repos/$CHART_REPO/contents/$CHART_VALUES_FILE?ref=$chart_tag" | yq "$CHART_VERSION_KEY")
+            shipped="${shipped#v}"
+            if version_is_older "$shipped" "$VERSION"; then
+              break
+            fi
+            chart_version="${chart_tag#"$CHART_TAG_PREFIX"}"
+          done
+
+          if [ -n "$chart_version" ]; then
+            echo "v$VERSION was released in chart $chart_version."
+            echo "version=$chart_version" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          waited_hours=$(( ($(date +%s) - $(git log -1 --format=%ct "$TAG")) / 3600 ))
+          summary="v$VERSION is waiting for a chart release (${waited_hours}h so far, limit ${MAX_WAIT_HOURS}h)"
+          echo "summary=$summary" >> "$GITHUB_OUTPUT"
+          if [ "$waited_hours" -gt "$MAX_WAIT_HOURS" ]; then
+            echo "::error::$summary. Check the chart release in $CHART_REPO."
+            exit 1
+          fi
+          echo "$summary"
+
+      - name: Collect the release notes
+        id: notes
+        if: steps.chart.outputs.version != ''
+        env:
+          VERSION: ${{ steps.release.outputs.version }}
+          TAG: ${{ steps.release.outputs.tag }}
+          PREVIOUS_TAG: ${{ steps.release.outputs.previous-tag }}
+          FOLDER: ${{ inputs.path }}
+          BOT_AUTHORS: ${{ inputs.bot-authors }}
+          CHART_VERSION: ${{ steps.chart.outputs.version }}
+          CHART_NAME: ${{ inputs.chart-name }}
+          CHART_URL_BASE: ${{ inputs.chart-url-base }}
+          RELEASE_URL_BASE: ${{ inputs.release-url-base }}
+        run: |
+          # Prints the lines inside a ```name fenced block. Fails if there is no such block.
+          read_block() {
+            awk -v name="$1" '
+              $0 ~ "^[[:space:]]*```" name "[[:space:]]*$" { inside = 1; found = 1; next }
+              inside && $0 ~ "^[[:space:]]*```[[:space:]]*$" { inside = 0; next }
+              inside { print }
+              END { exit !found }
+            ' <<< "$2"
+          }
+
+          # Turns a note into a markdown bullet. Later lines are indented under the first.
+          as_bullet() {
+            awk 'NR == 1 { print "* " $0; next } { print "  " $0 }' <<< "$1"
+          }
+
+          if [ -n "$PREVIOUS_TAG" ]; then
+            commits=$(git log --format=%H "$PREVIOUS_TAG..$TAG" -- "$FOLDER")
+          else
+            commits=$(git log --format=%H "$TAG" -- "$FOLDER")
+          fi
+
+          : > fixes.md
+          : > features.md
+          : > maintenance.md
+          has_dependency_updates=false
+          seen_prs=" "
+          source_prs=""
+
+          for sha in $commits; do
+            pr=$(gh api "repos/$GITHUB_REPOSITORY/commits/$sha/pulls" --jq '[.[] | select(.merged_at != null)][0] // empty')
+
+            # Base image bumps are pushed straight to main, so they have no PR.
+            if [ -z "$pr" ]; then
+              echo "$(git log -1 --format='%h %s' "$sha"): no PR, so it counts as a dependency update"
+              has_dependency_updates=true
+              continue
+            fi
+
+            number=$(jq -r .number <<< "$pr")
+            if [[ "$seen_prs" == *" $number "* ]]; then
+              continue
+            fi
+            seen_prs="$seen_prs$number "
+
+            head_ref=$(jq -r .head.ref <<< "$pr")
+            if [[ "$head_ref" == release-please--* ]]; then
+              continue
+            fi
+
+            title=$(jq -r .title <<< "$pr")
+            author=$(jq -r .user.login <<< "$pr")
+            author_type=$(jq -r .user.type <<< "$pr")
+            body=$(jq -r '.body // ""' <<< "$pr" | tr -d '\r')
+            source_prs="$source_prs- $(jq -r .html_url <<< "$pr")"$'\n'
+
+            # Keep the note's own indentation, but drop blank lines and trailing spaces.
+            note=""
+            if block=$(read_block release-note "$body"); then
+              note=$(sed -E 's/[[:space:]]+$//' <<< "$block" | grep -v '^$' || true)
+            fi
+            note_is_none=false
+            if [[ "$note" =~ ^[[:space:]]*NONE$ ]]; then
+              note_is_none=true
+            fi
+
+            if [ "$author_type" = "Bot" ] || grep -qxF "$author" <<< "$BOT_AUTHORS"; then
+              if [ -z "$note" ] || [ "$note_is_none" = true ]; then
+                echo "#$number ($author): bot PR, so it counts as a dependency update"
+                has_dependency_updates=true
+                continue
+              fi
+            fi
+
+            if [ "$note_is_none" = true ]; then
+              echo "#$number: NONE, so it is left out"
+              continue
+            fi
+            if [ -z "$note" ]; then
+              echo "::warning::#$number has no release-note block, so its title is used: $title"
+              note="$title"
+            fi
+
+            if [[ "$title" =~ ^feat(\(.*\))?!?: ]]; then
+              as_bullet "$note" >> features.md
+            elif [[ "$title" =~ ^fix(\(.*\))?!?: ]]; then
+              as_bullet "$note" >> fixes.md
+            else
+              as_bullet "$note" >> maintenance.md
+            fi
+            echo "#$number: added to the notes"
+          done
+
+          if [ "$has_dependency_updates" = true ]; then
+            echo "* Dependency and base image updates." >> maintenance.md
+          fi
+
+          {
+            echo "### [v$VERSION](${RELEASE_URL_BASE}$COMPONENT/v$VERSION/) ($(git log -1 --format=%cs "$TAG"))"
+            echo
+            echo "Released via the $CHART_NAME [version $CHART_VERSION](${CHART_URL_BASE}$CHART_VERSION/)"
+            if [ ! -s fixes.md ] && [ ! -s features.md ] && [ ! -s maintenance.md ]; then
+              echo
+              echo "No user-facing changes."
+            fi
+            if [ -s fixes.md ]; then
+              printf '\n#### Bug Fixes\n\n'
+              cat fixes.md
+            fi
+            if [ -s features.md ]; then
+              printf '\n#### Features\n\n'
+              cat features.md
+            fi
+            if [ -s maintenance.md ]; then
+              printf '\n#### Maintenance\n\n'
+              cat maintenance.md
+            fi
+          } > entry.md
+
+          printf '%s' "$source_prs" > source-prs.md
+          echo "--- entry ---"
+          cat entry.md
+
+      - name: Checkout the docs repo
+        if: steps.chart.outputs.version != ''
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ inputs.docs-repo }}
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
+          path: docs-repo
+
+      - name: Open the release notes PR
+        id: pr
+        if: steps.chart.outputs.version != ''
+        env:
+          VERSION: ${{ steps.release.outputs.version }}
+          BRANCH: ${{ steps.release.outputs.branch }}
+          CHART_NAME: ${{ inputs.chart-name }}
+          CHART_VERSION: ${{ steps.chart.outputs.version }}
+          DISPLAY_NAME: ${{ inputs.display-name }}
+          DOCS_REPO: ${{ inputs.docs-repo }}
+          DOCS_FILE: ${{ inputs.docs-file }}
+          DOCS_SCOPE: ${{ inputs.docs-scope }}
+          DOCS_LABEL: ${{ inputs.docs-label }}
+        run: |
+          cd docs-repo
+          if ! grep -qx '## Release Notes' "$DOCS_FILE"; then
+            echo "::error::$DOCS_FILE has no '## Release Notes' heading to add the entry under."
+            exit 1
+          fi
+
+          # Put the new entry straight under the heading, above the older entries.
+          awk -v entry_file=../entry.md '
+            { print }
+            !added && $0 == "## Release Notes" {
+              print ""
+              while ((getline line < entry_file) > 0) print line
+              added = 1
+            }
+          ' "$DOCS_FILE" > "$DOCS_FILE.new"
+          mv "$DOCS_FILE.new" "$DOCS_FILE"
+
+          title="docs($DOCS_SCOPE): release notes for $DISPLAY_NAME v$VERSION"
+          git config user.name "syntassodev"
+          git config user.email "kratix@syntasso.io"
+          git switch -c "$BRANCH"
+          git add "$DOCS_FILE"
+          git commit -m "$title"
+          # The branch belongs to this bot. A failed earlier run may have pushed it already.
+          git push --force origin "$BRANCH"
+
+          {
+            echo "Release notes for $DISPLAY_NAME v$VERSION, released via the $CHART_NAME version $CHART_VERSION."
+            echo
+            echo "Written by automation from the release-note blocks of these PRs:"
+            echo
+            cat ../source-prs.md
+            echo
+            echo "Part of the automated releases experiment (syntasso/enterprise-kratix#1679)."
+          } > ../pr-body.md
+
+          url=$(gh pr create --repo "$DOCS_REPO" --head "$BRANCH" --base main \
+            --title "$title" --body-file ../pr-body.md --label "$DOCS_LABEL")
+          echo "Opened $url"
+          echo "summary=opened <$url|the v$VERSION notes PR> (chart $CHART_VERSION)" >> "$GITHUB_OUTPUT"
+
+      # This runs every 15 minutes, so only post when it opened a PR or failed.
+      - name: Tell the experiment channel
+        if: always() && (failure() || steps.pr.outputs.summary != '')
+        uses: slackapi/slack-github-action@dcb1066f776dd043e64d0e8ba94ca15cc7e1875d # v4.0.0
+        with:
+          webhook: ${{ secrets.EXPERIMENT_RELEASES_SLACK_WEBHOOK_URL }}
+          webhook-type: incoming-webhook
+          payload: |
+            text: "${{ inputs.component }}: release notes PR *${{ job.status }}*: ${{ steps.pr.outputs.summary || steps.chart.outputs.summary || steps.release.outputs.summary }} <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View run>"
