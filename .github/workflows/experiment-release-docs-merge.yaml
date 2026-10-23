@@ -19,7 +19,7 @@ name: Experiment - Release docs merge
 #
 # Call it with `secrets: inherit`. It uses RELEASE_PLEASE_TOKEN (to merge, and so a branch
 # update starts the docs build), EXPERIMENT_RELEASES_SLACK_WEBHOOK_URL, and AWS_ACCESS_KEY_ID
-# and AWS_SECRET_ACCESS_KEY when no aws-role-arn is given.
+# and AWS_SECRET_ACCESS_KEY (or the *_FOR_RELEASES ones) when no aws-role-arn is given.
 
 on:
   workflow_call:
@@ -40,10 +40,15 @@ on:
         description: The S3 bucket the release files are in
         type: string
         required: true
+      bucket-path:
+        description: Optional. Release files are in <bucket>/<bucket-path>/vX.Y.Z/. Defaults to the component, e.g. aspects/ske-tfstate-finder
+        type: string
+        default: ''
       aws-role-arn:
         description: >-
           Optional. The AWS role to assume (with GitHub OIDC) to read the bucket. When empty,
-          the AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY secrets are used instead.
+          the AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY secrets are used instead, or the
+          AWS_ACCESS_KEY_ID_FOR_RELEASES and AWS_SECRET_ACCESS_KEY_FOR_RELEASES ones if those are not set.
         type: string
         default: ''
 
@@ -93,8 +98,8 @@ jobs:
         uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
         with:
           aws-region: eu-west-2
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID || secrets.AWS_ACCESS_KEY_ID_FOR_RELEASES }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY || secrets.AWS_SECRET_ACCESS_KEY_FOR_RELEASES }}
 
       - name: Check the release is in S3
         id: s3
@@ -102,9 +107,10 @@ jobs:
         env:
           VERSION: ${{ steps.notes.outputs.version }}
           BUCKET: ${{ inputs.bucket }}
+          BUCKET_PATH: ${{ inputs.bucket-path || inputs.component }}
         run: |
-          if [ -z "$(aws s3 ls "s3://$BUCKET/$COMPONENT/v$VERSION/")" ]; then
-            problem="v$VERSION is not in s3://$BUCKET/$COMPONENT/v$VERSION/. Docs must not merge before the release is available."
+          if [ -z "$(aws s3 ls "s3://$BUCKET/$BUCKET_PATH/v$VERSION/")" ]; then
+            problem="v$VERSION is not in s3://$BUCKET/$BUCKET_PATH/v$VERSION/. Docs must not merge before the release is available."
             echo "::error::$problem"
             echo "problem=$problem" >> "$GITHUB_OUTPUT"
             exit 1

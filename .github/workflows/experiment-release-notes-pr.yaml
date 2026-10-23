@@ -5,8 +5,9 @@ name: Experiment - Release notes PR
 # Opens the release notes PR in the docs repo for a component release. Run it on a schedule.
 # Each run looks at the oldest release that has no notes PR yet:
 #
-#   1. It waits until a chart release ships that version (for example the SKE Operator
-#      Helm Chart), because each entry says which chart version it was released in.
+#   1. If chart-repo is set, it waits until a chart release ships that version (for example
+#      the SKE Operator Helm Chart), because each entry says which chart version it was
+#      released in. Without a chart, it goes straight on and leaves that line out.
 #   2. It collects the release-note block from every PR in the release.
 #   3. It writes the entry at the top of the release notes page and opens a PR.
 #
@@ -60,29 +61,32 @@ on:
         type: string
         required: true
       chart-repo:
-        description: The repo the chart is released from, e.g. syntasso/helm-charts
+        description: >-
+          Optional. The repo the chart is released from, e.g. syntasso/helm-charts. Leave it empty
+          for a component that ships on its own, with no chart. The other chart inputs are only
+          needed when this is set.
         type: string
-        required: true
+        default: ''
       chart-tag-prefix:
         description: Chart release tags are this, then the chart version, e.g. ske-operator-v
         type: string
-        required: true
+        default: ''
       chart-values-file:
         description: The values file in the chart repo, e.g. ske-operator/values.yaml
         type: string
-        required: true
+        default: ''
       chart-version-key:
         description: The yq path to the component version in the values file, e.g. .portalIntegration.version
         type: string
-        required: true
+        default: ''
       chart-name:
         description: The chart name used in the docs, e.g. SKE Operator Helm Chart
         type: string
-        required: true
+        default: ''
       chart-url-base:
         description: Chart links are this, then <chart version>/
         type: string
-        required: true
+        default: ''
       max-wait-hours:
         description: Fail when a release has waited longer than this for a chart release
         type: number
@@ -162,6 +166,12 @@ jobs:
           CHART_VERSION_KEY: ${{ inputs.chart-version-key }}
           MAX_WAIT_HOURS: ${{ inputs.max-wait-hours }}
         run: |
+          if [ -z "$CHART_REPO" ]; then
+            echo "No chart is set, so the notes PR does not wait for a chart release."
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
           version_is_older() {
             [ "$1" != "$2" ] && [ "$(printf '%s\n%s\n' "$1" "$2" | sort -V | head -1)" = "$1" ]
           }
@@ -182,7 +192,10 @@ jobs:
 
           if [ -n "$chart_version" ]; then
             echo "v$VERSION was released in chart $chart_version."
-            echo "version=$chart_version" >> "$GITHUB_OUTPUT"
+            {
+              echo "version=$chart_version"
+              echo "ready=true"
+            } >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
@@ -197,7 +210,7 @@ jobs:
 
       - name: Collect the release notes
         id: notes
-        if: steps.chart.outputs.version != ''
+        if: steps.chart.outputs.ready == 'true'
         env:
           VERSION: ${{ steps.release.outputs.version }}
           TAG: ${{ steps.release.outputs.tag }}
@@ -313,8 +326,10 @@ jobs:
 
           {
             echo "### [v$VERSION](${RELEASE_URL_BASE}$COMPONENT/v$VERSION/) ($(git log -1 --format=%cs "$TAG"))"
-            echo
-            echo "Released via the $CHART_NAME [version $CHART_VERSION](${CHART_URL_BASE}$CHART_VERSION/)"
+            if [ -n "$CHART_VERSION" ]; then
+              echo
+              echo "Released via the $CHART_NAME [version $CHART_VERSION](${CHART_URL_BASE}$CHART_VERSION/)"
+            fi
             if [ ! -s fixes.md ] && [ ! -s features.md ] && [ ! -s maintenance.md ]; then
               echo
               echo "No user-facing changes."
@@ -347,7 +362,7 @@ jobs:
           cat entry.md
 
       - name: Checkout the docs repo
-        if: steps.chart.outputs.version != ''
+        if: steps.chart.outputs.ready == 'true'
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: ${{ inputs.docs-repo }}
@@ -356,7 +371,7 @@ jobs:
 
       - name: Open the release notes PR
         id: pr
-        if: steps.chart.outputs.version != ''
+        if: steps.chart.outputs.ready == 'true'
         env:
           VERSION: ${{ steps.release.outputs.version }}
           BRANCH: ${{ steps.release.outputs.branch }}
@@ -395,7 +410,11 @@ jobs:
           git push --force origin "$BRANCH"
 
           {
-            echo "Release notes for $DISPLAY_NAME v$VERSION, released via the $CHART_NAME version $CHART_VERSION."
+            if [ -n "$CHART_VERSION" ]; then
+              echo "Release notes for $DISPLAY_NAME v$VERSION, released via the $CHART_NAME version $CHART_VERSION."
+            else
+              echo "Release notes for $DISPLAY_NAME v$VERSION."
+            fi
             echo
             echo "Written by automation from the release-note blocks of these PRs:"
             echo
@@ -414,7 +433,7 @@ jobs:
           url=$(gh pr create --repo "$DOCS_REPO" --head "$BRANCH" --base main \
             --title "$title" --body-file ../pr-body.md --label "$DOCS_LABEL")
           echo "Opened $url"
-          echo "summary=opened <$url|the v$VERSION notes PR> (chart $CHART_VERSION)" >> "$GITHUB_OUTPUT"
+          echo "summary=opened <$url|the v$VERSION notes PR>${CHART_VERSION:+ (chart $CHART_VERSION)}" >> "$GITHUB_OUTPUT"
 
       # Quiet when it works: the "docs are live" message comes from the docs merge workflow.
       # Only tell people when the docs are stuck.
