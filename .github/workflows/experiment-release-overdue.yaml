@@ -1,0 +1,74 @@
+name: Experiment - Release overdue
+
+# Part of the automated releases experiment (syntasso/enterprise-kratix#1640).
+#
+# Fails when a component has not released for more than max-days. Run it on a schedule.
+# A failed run is the alert: the GitHub Slack app posts it to the failed jobs channel.
+# It only alerts. It never starts a release.
+#
+# Call it with `secrets: inherit`. It uses EXPERIMENT_RELEASES_SLACK_WEBHOOK_URL.
+
+on:
+  workflow_call:
+    inputs:
+      component:
+        description: The release-please component, e.g. ske-portal-controller
+        type: string
+        required: true
+      max-days:
+        description: Fail when the last release is older than this many days
+        type: number
+        required: true
+
+jobs:
+  check:
+    name: Check the last release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    env:
+      COMPONENT: ${{ inputs.component }}
+      MAX_DAYS: ${{ inputs.max-days }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Check when the last release happened
+        id: check
+        run: |
+          last_release=$(gh release list --repo "$GITHUB_REPOSITORY" --limit 100 \
+            --json tagName,publishedAt,isDraft \
+            --jq "[.[] | select(.isDraft | not) | select(.tagName | startswith(\"$COMPONENT-v\"))] | sort_by(.publishedAt) | last // empty")
+
+          release_pr=$(gh pr list --repo "$GITHUB_REPOSITORY" \
+            --head "release-please--branches--main--components--$COMPONENT" \
+            --json url --jq '.[0].url // "none open"')
+
+          if [ -z "$last_release" ]; then
+            summary="no $COMPONENT release found. Release PR: $release_pr"
+            echo "summary=$summary" >> "$GITHUB_OUTPUT"
+            echo "::error::$summary"
+            exit 1
+          fi
+
+          tag=$(jq -r .tagName <<< "$last_release")
+          published_at=$(jq -r .publishedAt <<< "$last_release")
+          age_seconds=$(( $(date +%s) - $(date -d "$published_at" +%s) ))
+          age_days=$(( age_seconds / 86400 ))
+          age_hours=$(( (age_seconds % 86400) / 3600 ))
+          summary="last release was $tag, ${age_days}d ${age_hours}h ago (limit ${MAX_DAYS}d). Release PR: $release_pr"
+          echo "summary=$summary" >> "$GITHUB_OUTPUT"
+
+          if [ "$age_seconds" -gt $(( MAX_DAYS * 86400 )) ]; then
+            echo "::error::$COMPONENT release is overdue: $summary"
+            exit 1
+          fi
+          echo "$COMPONENT is fine: $summary"
+
+      - name: Tell the experiment channel
+        if: always()
+        uses: slackapi/slack-github-action@dcb1066f776dd043e64d0e8ba94ca15cc7e1875d # v4.0.0
+        with:
+          webhook: ${{ secrets.EXPERIMENT_RELEASES_SLACK_WEBHOOK_URL }}
+          webhook-type: incoming-webhook
+          payload: |
+            text: "${{ inputs.component }}: release overdue check *${{ job.status == 'success' && 'OK' || 'OVERDUE' }}*: ${{ steps.check.outputs.summary }} <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View run>"
