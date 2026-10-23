@@ -86,12 +86,12 @@ jobs:
           done <<< "$IMAGE_PATHS"
 
           # 2. Have all the required checks passed on this exact commit?
-          required_checks=$(sed '/^[[:space:]]*$/d' <<< "$REQUIRED_CHECKS")
-          if [ -z "$required_checks" ]; then
-            required_checks=$(gh api "repos/$GITHUB_REPOSITORY/rules/branches/main" \
+          checks_to_pass=$(sed '/^[[:space:]]*$/d' <<< "$REQUIRED_CHECKS")
+          if [ -z "$checks_to_pass" ]; then
+            checks_to_pass=$(gh api "repos/$GITHUB_REPOSITORY/rules/branches/main" \
               --jq '[.[] | select(.type == "required_status_checks") | .parameters.required_status_checks[].context] | unique | .[]')
           fi
-          if [ -z "$required_checks" ]; then
+          if [ -z "$checks_to_pass" ]; then
             problem="no required checks are set, so it is not safe to auto-merge. Pass required-checks, or add a ruleset on main that requires the candidate check."
             echo "::error::$problem"
             echo "problem=$problem" >> "$GITHUB_OUTPUT"
@@ -114,7 +114,7 @@ jobs:
               exit 0
             fi
             echo "'$check': passed"
-          done <<< "$required_checks"
+          done <<< "$checks_to_pass"
 
           gh pr merge "$number" --repo "$GITHUB_REPOSITORY" --squash --match-head-commit "$head_sha"
           echo "Merged release PR #$number."
