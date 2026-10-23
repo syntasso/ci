@@ -6,7 +6,7 @@ name: Experiment - Release docs merge
 # oldest open release notes PR (opened by experiment-release-notes-pr.yaml) and:
 #
 #   1. Checks the release is in S3. Docs must never go out before the release.
-#   2. Merges each docs PR listed in the notes PR's docs-pr block, one at a time, once its
+#   2. Merges each docs PR listed in the notes PR's description, one at a time, once its
 #      docs build passes. No review is needed: the author had the docs PR reviewed.
 #   3. Merges the notes PR last, because it links to the pages the docs PRs add. Its build
 #      must have run after those docs PRs merged, so the job updates its branch first.
@@ -118,14 +118,15 @@ jobs:
           NOTES_PR: ${{ steps.notes.outputs.number }}
           VERSION: ${{ steps.notes.outputs.version }}
         run: |
-          # Prints the lines inside a ```name fenced block. Fails if there is no such block.
-          read_block() {
-            awk -v name="$1" '
-              $0 ~ "^[[:space:]]*```" name "[[:space:]]*$" { inside = 1; found = 1; next }
-              inside && $0 ~ "^[[:space:]]*```[[:space:]]*$" { inside = 0; next }
+          # Prints the lines between the <!-- docs-prs-to-merge --> markers that
+          # experiment-release-notes-pr.yaml writes. Fails if the markers are missing.
+          read_docs_prs_list() {
+            awk '
+              /<!-- docs-prs-to-merge/ { inside = 1; found = 1; next }
+              /<!-- \/docs-prs-to-merge -->/ { inside = 0; next }
               inside { print }
               END { exit !found }
-            ' <<< "$2"
+            ' <<< "$1"
           }
 
           # Prints pass, fail or pending for the docs build on one commit, or nothing if it has
@@ -147,10 +148,10 @@ jobs:
           }
 
           notes_body=$(gh pr view "$NOTES_PR" --repo "$DOCS_REPO" --json body --jq .body | tr -d '\r')
-          if ! docs_prs=$(read_block docs-pr "$notes_body"); then
-            stuck "Release notes PR #$NOTES_PR has no docs-pr block. Add one listing the docs PRs to merge, or NONE."
+          if ! docs_prs=$(read_docs_prs_list "$notes_body"); then
+            stuck "Release notes PR #$NOTES_PR has no list of docs PRs to merge. Put the <!-- docs-prs-to-merge --> markers back, with the docs PR links (or - None) between them."
           fi
-          docs_prs=$(grep -oE 'https://github\.com/[^[:space:]]+/pull/[0-9]+' <<< "$docs_prs" || true)
+          docs_prs=$(grep -oE 'https://github\.com/[^[:space:])]+/pull/[0-9]+' <<< "$docs_prs" || true)
           # The Slack step lists these once everything has merged.
           echo "$docs_prs" > docs-prs.txt
 
@@ -163,7 +164,7 @@ jobs:
               continue
             fi
             if [ "$state" = "CLOSED" ]; then
-              stuck "$docs_pr is closed, but v$VERSION links to it. Reopen it, or remove it from the docs-pr block of #$NOTES_PR."
+              stuck "$docs_pr is closed, but v$VERSION links to it. Reopen it, or remove it from the docs PR list of #$NOTES_PR."
             fi
 
             result=$(build_result "$head_sha")

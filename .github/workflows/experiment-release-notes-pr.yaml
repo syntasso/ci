@@ -334,11 +334,12 @@ jobs:
           } > entry.md
 
           printf '%s' "$source_prs" > source-prs.md
-          # Two code PRs can link the same docs PR.
-          awk '!seen[$0]++' docs-prs.md > docs-prs.unique.md
+          # Two code PRs can link the same docs PR. Write them as a markdown list, so GitHub
+          # shows each one as a link.
+          awk '!seen[$0]++ { print "- " $0 }' docs-prs.md > docs-prs.unique.md
           mv docs-prs.unique.md docs-prs.md
           if [ ! -s docs-prs.md ]; then
-            echo NONE > docs-prs.md
+            echo "- None" > docs-prs.md
           fi
           echo "--- docs PRs ---"
           cat docs-prs.md
@@ -402,9 +403,10 @@ jobs:
             echo
             echo "Docs PRs to merge before this one (from the docs-pr blocks of the PRs above):"
             echo
-            echo '```docs-pr'
+            # experiment-release-docs-merge.yaml reads the links between these markers.
+            echo "<!-- docs-prs-to-merge: the docs merge job reads the links between these markers -->"
             cat ../docs-prs.md
-            echo '```'
+            echo "<!-- /docs-prs-to-merge -->"
             echo
             echo "Part of the automated releases experiment (syntasso/enterprise-kratix#1679)."
           } > ../pr-body.md
