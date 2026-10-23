@@ -6,8 +6,9 @@ name: Experiment - Release publish
 # that experiment-release-candidate.yaml built and scanned for the merged release PR, and
 # gives it the release tag. It never builds the image again.
 #
-# Safe to re-run. Image tags are never overwritten. Release files (the SBOMs) are made
-# from the same image digest, so uploading them again gives the same content.
+# Safe to re-run. Image tags are never overwritten. Release files (the SBOMs, and any files
+# from release-files-command) are made from the same image digest and tagged source, so
+# uploading them again gives the same content.
 #
 # Call it with `secrets: inherit`. It uses EXPERIMENT_RELEASES_SLACK_WEBHOOK_URL.
 
@@ -34,6 +35,20 @@ on:
         description: The AWS role to assume (with GitHub OIDC) to write to the bucket
         type: string
         required: true
+      release-files-command:
+        description: >-
+          Optional. A command that makes more release files, such as an installer. It runs from the
+          repo root at the release tag, with VERSION set to vX.Y.Z.
+        type: string
+        default: ''
+      release-files:
+        description: Optional. The files that release-files-command makes, one per line, relative to the repo root
+        type: string
+        default: ''
+      go-version:
+        description: Optional. Set up this Go version before running release-files-command
+        type: string
+        default: ''
 
 jobs:
   publish:
@@ -90,6 +105,39 @@ jobs:
             echo "digest=$digest"
           } >> "$GITHUB_OUTPUT"
 
+      # Make the extra release files before tagging anything, so a broken build publishes nothing.
+      - name: Checkout the release tag
+        if: inputs.release-files-command != ''
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.tag }}
+          path: source
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        if: inputs.go-version != ''
+        with:
+          go-version: ${{ inputs.go-version }}
+          cache: false
+      - name: Make the extra release files from the tagged source
+        if: inputs.release-files-command != ''
+        working-directory: source
+        env:
+          VERSION: v${{ steps.candidate.outputs.version }}
+          RELEASE_FILES_COMMAND: ${{ inputs.release-files-command }}
+          RELEASE_FILES: ${{ inputs.release-files }}
+        run: |
+          bash -eo pipefail -c "$RELEASE_FILES_COMMAND"
+          while read -r file; do
+            if [ -z "$file" ]; then
+              continue
+            fi
+            if [ ! -s "$file" ]; then
+              echo "::error::The release files command did not make $file."
+              exit 1
+            fi
+            cp "$file" "$GITHUB_WORKSPACE/"
+            echo "Made ${file##*/}"
+          done <<< "$RELEASE_FILES"
+
       - name: Give the candidate its release tag, never overwriting
         env:
           VERSION: ${{ steps.candidate.outputs.version }}
@@ -145,12 +193,19 @@ jobs:
         env:
           VERSION: ${{ steps.candidate.outputs.version }}
           BUCKET: ${{ inputs.bucket }}
+          RELEASE_FILES: ${{ inputs.release-files }}
         run: |
-          for file in "$COMPONENT-sbom.json" "$COMPONENT-arm64-sbom.json"; do
+          files=("$COMPONENT-sbom.json" "$COMPONENT-arm64-sbom.json")
+          while read -r file; do
+            if [ -n "$file" ]; then
+              files+=("${file##*/}")
+            fi
+          done <<< "$RELEASE_FILES"
+
+          for file in "${files[@]}"; do
             aws s3 cp "$file" "s3://$BUCKET/$COMPONENT/v$VERSION/$file"
           done
-          gh release upload "$TAG" "$COMPONENT-sbom.json" "$COMPONENT-arm64-sbom.json" \
-            --repo "$GITHUB_REPOSITORY" --clobber
+          gh release upload "$TAG" "${files[@]}" --repo "$GITHUB_REPOSITORY" --clobber
 
       - name: Tell the experiment channel the release is out
         env:
