@@ -233,6 +233,7 @@ jobs:
           : > fixes.md
           : > features.md
           : > maintenance.md
+          : > docs-prs.md
           has_dependency_updates=false
           seen_prs=" "
           source_prs=""
@@ -263,6 +264,11 @@ jobs:
             author_type=$(jq -r .user.type <<< "$pr")
             body=$(jq -r '.body // ""' <<< "$pr" | tr -d '\r')
             source_prs="$source_prs- $(jq -r .html_url <<< "$pr")"$'\n'
+
+            # experiment-release-docs-merge.yaml merges these docs PRs after the release.
+            if docs_block=$(read_block docs-pr "$body"); then
+              grep -oE 'https://github\.com/[^[:space:]]+/pull/[0-9]+' <<< "$docs_block" >> docs-prs.md || true
+            fi
 
             # Keep the note's own indentation, but drop blank lines and trailing spaces.
             note=""
@@ -328,6 +334,14 @@ jobs:
           } > entry.md
 
           printf '%s' "$source_prs" > source-prs.md
+          # Two code PRs can link the same docs PR.
+          awk '!seen[$0]++' docs-prs.md > docs-prs.unique.md
+          mv docs-prs.unique.md docs-prs.md
+          if [ ! -s docs-prs.md ]; then
+            echo NONE > docs-prs.md
+          fi
+          echo "--- docs PRs ---"
+          cat docs-prs.md
           echo "--- entry ---"
           cat entry.md
 
@@ -385,6 +399,12 @@ jobs:
             echo "Written by automation from the release-note blocks of these PRs:"
             echo
             cat ../source-prs.md
+            echo
+            echo "Docs PRs to merge before this one (from the docs-pr blocks of the PRs above):"
+            echo
+            echo '```docs-pr'
+            cat ../docs-prs.md
+            echo '```'
             echo
             echo "Part of the automated releases experiment (syntasso/enterprise-kratix#1679)."
           } > ../pr-body.md

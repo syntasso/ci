@@ -1,0 +1,191 @@
+name: Experiment - Release docs merge
+
+# Part of the automated releases experiment (syntasso/enterprise-kratix#1680).
+#
+# Merges the docs for a component release. Run it on a schedule. Each run looks at the
+# oldest open release notes PR (opened by experiment-release-notes-pr.yaml) and:
+#
+#   1. Checks the release is in S3. Docs must never go out before the release.
+#   2. Merges each docs PR listed in the notes PR's docs-pr block, one at a time, once its
+#      docs build passes. No review is needed: the author had the docs PR reviewed.
+#   3. Merges the notes PR last, because it links to the pages the docs PRs add. Its build
+#      must have run after those docs PRs merged, so the job updates its branch first.
+#
+# When a build is still running, the run stops and the next run carries on. When a build
+# fails, or a docs PR is closed or cannot merge, the job fails and alerts. A person fixes
+# it and the next run carries on. PRs that already merged are skipped.
+#
+# Docs PRs with the -next label that are not linked from a released PR stay open.
+#
+# Call it with `secrets: inherit`. It uses RELEASE_PLEASE_TOKEN (to merge, and so a branch
+# update starts the docs build) and EXPERIMENT_RELEASES_SLACK_WEBHOOK_URL.
+
+on:
+  workflow_call:
+    inputs:
+      component:
+        description: The release-please component, e.g. ske-portal-controller
+        type: string
+        required: true
+      docs-repo:
+        description: The docs repo, e.g. syntasso/kratix-docs
+        type: string
+        required: true
+      docs-check:
+        description: The name of the docs build check
+        type: string
+        default: build
+      bucket:
+        description: The S3 bucket the release files are in
+        type: string
+        required: true
+      aws-role-arn:
+        description: The AWS role to assume (with GitHub OIDC) to read the bucket
+        type: string
+        required: true
+
+jobs:
+  merge:
+    name: Merge the release docs
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    concurrency:
+      group: experiment-release-docs-merge-${{ inputs.component }}
+      cancel-in-progress: false
+    env:
+      COMPONENT: ${{ inputs.component }}
+      DOCS_REPO: ${{ inputs.docs-repo }}
+      DOCS_CHECK: ${{ inputs.docs-check }}
+      GH_TOKEN: ${{ secrets.RELEASE_PLEASE_TOKEN }}
+    steps:
+      - name: Find the oldest open release notes PR
+        id: notes
+        run: |
+          notes_pr=$(gh pr list --repo "$DOCS_REPO" --state open --limit 100 --json number,headRefName \
+            --jq "[.[] | select(.headRefName | startswith(\"release-notes/$COMPONENT-v\"))] | sort_by(.number) | .[0] // empty")
+          if [ -z "$notes_pr" ]; then
+            echo "No open release notes PR."
+            exit 0
+          fi
+
+          number=$(jq -r .number <<< "$notes_pr")
+          branch=$(jq -r .headRefName <<< "$notes_pr")
+          version="${branch#release-notes/"$COMPONENT"-v}"
+          echo "Release notes PR #$number is for v$version."
+          {
+            echo "number=$number"
+            echo "version=$version"
+          } >> "$GITHUB_OUTPUT"
+
+      - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        if: steps.notes.outputs.number != ''
+        with:
+          aws-region: eu-west-2
+          role-to-assume: ${{ inputs.aws-role-arn }}
+
+      - name: Check the release is in S3
+        if: steps.notes.outputs.number != ''
+        env:
+          VERSION: ${{ steps.notes.outputs.version }}
+          BUCKET: ${{ inputs.bucket }}
+        run: |
+          if [ -z "$(aws s3 ls "s3://$BUCKET/$COMPONENT/v$VERSION/")" ]; then
+            echo "::error::v$VERSION is not in s3://$BUCKET/$COMPONENT/v$VERSION/. Docs must not merge before the release is available."
+            exit 1
+          fi
+          echo "v$VERSION is in S3."
+
+      - name: Merge the docs PRs, then the release notes PR
+        id: merge
+        if: steps.notes.outputs.number != ''
+        env:
+          NOTES_PR: ${{ steps.notes.outputs.number }}
+          VERSION: ${{ steps.notes.outputs.version }}
+        run: |
+          # Prints the lines inside a ```name fenced block. Fails if there is no such block.
+          read_block() {
+            awk -v name="$1" '
+              $0 ~ "^[[:space:]]*```" name "[[:space:]]*$" { inside = 1; found = 1; next }
+              inside && $0 ~ "^[[:space:]]*```[[:space:]]*$" { inside = 0; next }
+              inside { print }
+              END { exit !found }
+            ' <<< "$2"
+          }
+
+          # Prints pass, fail, pending, skipping or cancel for the docs build, or nothing if it has not started.
+          build_result() {
+            gh pr checks "$1" --repo "$DOCS_REPO" --json name,bucket \
+              --jq "[.[] | select(.name == \"$DOCS_CHECK\")][0].bucket // empty" 2>/dev/null || true
+          }
+
+          merged=""
+
+          notes_body=$(gh pr view "$NOTES_PR" --repo "$DOCS_REPO" --json body --jq .body | tr -d '\r')
+          if ! docs_prs=$(read_block docs-pr "$notes_body"); then
+            echo "::error::Release notes PR #$NOTES_PR has no docs-pr block. Add one listing the docs PRs to merge, or NONE."
+            exit 1
+          fi
+          docs_prs=$(grep -oE 'https://github\.com/[^[:space:]]+/pull/[0-9]+' <<< "$docs_prs" || true)
+
+          for docs_pr in $docs_prs; do
+            state=$(gh pr view "$docs_pr" --json state --jq .state)
+            if [ "$state" = "MERGED" ]; then
+              echo "$docs_pr: already merged"
+              continue
+            fi
+            if [ "$state" = "CLOSED" ]; then
+              echo "::error::$docs_pr is closed, but v$VERSION links to it. Reopen it, or remove it from the docs-pr block of #$NOTES_PR."
+              exit 1
+            fi
+
+            result=$(build_result "$docs_pr")
+            if [ "$result" = "fail" ] || [ "$result" = "cancel" ]; then
+              echo "::error::The $DOCS_CHECK check failed on $docs_pr. Nothing after it was merged. Fix it and the next run carries on."
+              exit 1
+            fi
+            if [ "$result" != "pass" ]; then
+              echo "$docs_pr: waiting for the $DOCS_CHECK check (${result:-not started}). The next run carries on."
+              echo "summary=${merged:+merged$merged, }waiting for the $DOCS_CHECK check on $docs_pr" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+
+            gh pr merge "$docs_pr" --squash
+            echo "$docs_pr: merged"
+            merged="$merged $docs_pr"
+          done
+
+          # The notes PR links to pages the docs PRs added, so its build must have run against them.
+          behind_by=$(gh api "repos/$DOCS_REPO/compare/main...$(gh pr view "$NOTES_PR" --repo "$DOCS_REPO" --json headRefOid --jq .headRefOid)" --jq .behind_by)
+          if [ "$behind_by" -gt 0 ]; then
+            gh pr update-branch "$NOTES_PR" --repo "$DOCS_REPO"
+            echo "Release notes PR #$NOTES_PR was behind main, so its branch was updated. The next run merges it once the $DOCS_CHECK check passes."
+            echo "summary=${merged:+merged$merged, }updated #$NOTES_PR with main and waiting for its $DOCS_CHECK check" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          result=$(build_result "$NOTES_PR")
+          if [ "$result" = "fail" ] || [ "$result" = "cancel" ]; then
+            echo "::error::The $DOCS_CHECK check failed on release notes PR #$NOTES_PR."
+            exit 1
+          fi
+          if [ "$result" != "pass" ]; then
+            echo "Waiting for the $DOCS_CHECK check on release notes PR #$NOTES_PR (${result:-not started})."
+            echo "summary=${merged:+merged$merged, }waiting for the $DOCS_CHECK check on #$NOTES_PR" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          gh pr merge "$NOTES_PR" --repo "$DOCS_REPO" --squash --delete-branch
+          echo "Release notes PR #$NOTES_PR merged."
+          echo "summary=${merged:+merged$merged, }merged the v$VERSION release notes (#$NOTES_PR)" >> "$GITHUB_OUTPUT"
+
+      # This runs every 15 minutes, so only post when it merged something or failed.
+      - name: Tell the experiment channel
+        if: always() && (failure() || contains(steps.merge.outputs.summary, 'merged'))
+        uses: slackapi/slack-github-action@dcb1066f776dd043e64d0e8ba94ca15cc7e1875d # v4.0.0
+        with:
+          webhook: ${{ secrets.EXPERIMENT_RELEASES_SLACK_WEBHOOK_URL }}
+          webhook-type: incoming-webhook
+          payload: |
+            text: "${{ inputs.component }}: release docs merge for v${{ steps.notes.outputs.version }} *${{ job.status }}*: ${{ steps.merge.outputs.summary }} <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View run>"
