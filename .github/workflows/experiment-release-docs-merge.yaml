@@ -18,7 +18,8 @@ name: Experiment - Release docs merge
 # Docs PRs with the -next label that are not linked from a released PR stay open.
 #
 # Call it with `secrets: inherit`. It uses RELEASE_PLEASE_TOKEN (to merge, and so a branch
-# update starts the docs build) and EXPERIMENT_RELEASES_SLACK_WEBHOOK_URL.
+# update starts the docs build), EXPERIMENT_RELEASES_SLACK_WEBHOOK_URL, and AWS_ACCESS_KEY_ID
+# and AWS_SECRET_ACCESS_KEY when no aws-role-arn is given.
 
 on:
   workflow_call:
@@ -40,9 +41,11 @@ on:
         type: string
         required: true
       aws-role-arn:
-        description: The AWS role to assume (with GitHub OIDC) to read the bucket
+        description: >-
+          Optional. The AWS role to assume (with GitHub OIDC) to read the bucket. When empty,
+          the AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY secrets are used instead.
         type: string
-        required: true
+        default: ''
 
 jobs:
   merge:
@@ -79,11 +82,19 @@ jobs:
             echo "version=$version"
           } >> "$GITHUB_OUTPUT"
 
-      - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
-        if: steps.notes.outputs.number != ''
+      - name: Log in to AWS with the role
+        if: steps.notes.outputs.number != '' && inputs.aws-role-arn != ''
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
         with:
           aws-region: eu-west-2
           role-to-assume: ${{ inputs.aws-role-arn }}
+      - name: Log in to AWS with access keys
+        if: steps.notes.outputs.number != '' && inputs.aws-role-arn == ''
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          aws-region: eu-west-2
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
 
       - name: Check the release is in S3
         id: s3

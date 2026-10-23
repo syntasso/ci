@@ -10,7 +10,8 @@ name: Experiment - Release publish
 # from release-files-command) are made from the same image digest and tagged source, so
 # uploading them again gives the same content.
 #
-# Call it with `secrets: inherit`. It uses EXPERIMENT_RELEASES_SLACK_WEBHOOK_URL.
+# Call it with `secrets: inherit`. It uses EXPERIMENT_RELEASES_SLACK_WEBHOOK_URL, and
+# AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY when no aws-role-arn is given.
 
 on:
   workflow_call:
@@ -32,9 +33,11 @@ on:
         type: string
         required: true
       aws-role-arn:
-        description: The AWS role to assume (with GitHub OIDC) to write to the bucket
+        description: >-
+          Optional. The AWS role to assume (with GitHub OIDC) to write to the bucket. When empty,
+          the AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY secrets are used instead.
         type: string
-        required: true
+        default: ''
       release-files-command:
         description: >-
           Optional. A command that makes more release files, such as an installer. It runs from the
@@ -184,10 +187,19 @@ jobs:
           syft "registry:$IMAGE@$DIGEST" --platform linux/amd64 -o "syft-json=$COMPONENT-sbom.json"
           syft "registry:$IMAGE@$DIGEST" --platform linux/arm64 -o "syft-json=$COMPONENT-arm64-sbom.json"
 
-      - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+      - name: Log in to AWS with the role
+        if: inputs.aws-role-arn != ''
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
         with:
           aws-region: eu-west-2
           role-to-assume: ${{ inputs.aws-role-arn }}
+      - name: Log in to AWS with access keys
+        if: inputs.aws-role-arn == ''
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          aws-region: eu-west-2
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
 
       - name: Upload the release files
         env:
