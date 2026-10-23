@@ -69,6 +69,7 @@ jobs:
 
       - name: Build and push the candidate, unless it already exists
         env:
+          IMAGE: ${{ inputs.image }}
           CONTEXT: ${{ inputs.context }}
           DOCKERFILE: ${{ inputs.dockerfile }}
           BUILD_CONTEXTS: ${{ inputs.build-contexts }}
@@ -85,10 +86,14 @@ jobs:
             fi
           done <<< "$BUILD_CONTEXTS"
 
+          # Reuse layers from earlier builds, such as the builder stage installing Go.
+          build_cache="$IMAGE:buildcache"
           docker buildx build \
             --platform linux/amd64,linux/arm64 \
             --file "$DOCKERFILE" \
             --tag "$CANDIDATE" \
+            --cache-from "type=registry,ref=$build_cache" \
+            --cache-to "type=registry,ref=$build_cache,mode=max" \
             --push \
             "${build_context_args[@]}" \
             "$CONTEXT"
