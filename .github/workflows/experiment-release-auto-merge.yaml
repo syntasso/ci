@@ -5,14 +5,18 @@ name: Experiment - Release auto-merge
 # Merges a component's release-please PR once it is safe. Run it after each candidate
 # check finishes and after every push to main. It merges only when:
 #
-#   1. every required check on main has passed on the PR's current commit, and
+#   1. every required check has passed on the PR's current commit, and
 #   2. nothing on main has changed the component's files since the PR was built.
+#
+# The required checks are the required-checks input, or if that is empty, the required
+# checks of the ruleset on main. With no checks at all, it refuses to merge.
 #
 # If main has changed the component, the scanned image is missing that change. So the job
 # waits: release-please updates the PR (set always-update: true), a new candidate is built
 # and scanned, and the next run merges it.
 #
-# It merges with --match-head-commit and never with --admin, so required checks still apply.
+# It merges with --match-head-commit and never with --admin, so a ruleset on main, if there
+# is one, still applies.
 #
 # Call it with `secrets: inherit`. It uses RELEASE_PLEASE_TOKEN (a merge with GITHUB_TOKEN
 # would not start the tag workflow) and EXPERIMENT_RELEASES_SLACK_WEBHOOK_URL.
@@ -28,6 +32,12 @@ on:
         description: Folders that go into the image, one per line, e.g. ske-portal-controller/ and ske-operator/
         type: string
         required: true
+      required-checks:
+        description: >-
+          Optional. The checks that must pass before merging, one per line, e.g.
+          "candidate / Build and scan". When empty, the required checks of the ruleset on main are used.
+        type: string
+        default: ''
 
 jobs:
   merge:
@@ -41,6 +51,7 @@ jobs:
     env:
       COMPONENT: ${{ inputs.component }}
       IMAGE_PATHS: ${{ inputs.paths }}
+      REQUIRED_CHECKS: ${{ inputs.required-checks }}
       GH_TOKEN: ${{ secrets.RELEASE_PLEASE_TOKEN }}
     steps:
       - name: Merge the release PR if it is safe
@@ -75,10 +86,13 @@ jobs:
           done <<< "$IMAGE_PATHS"
 
           # 2. Have all the required checks passed on this exact commit?
-          required_checks=$(gh api "repos/$GITHUB_REPOSITORY/rules/branches/main" \
-            --jq '[.[] | select(.type == "required_status_checks") | .parameters.required_status_checks[].context] | unique | .[]')
+          required_checks=$(sed '/^[[:space:]]*$/d' <<< "$REQUIRED_CHECKS")
           if [ -z "$required_checks" ]; then
-            problem="main has no required checks, so it is not safe to auto-merge. Add a ruleset that requires the candidate check."
+            required_checks=$(gh api "repos/$GITHUB_REPOSITORY/rules/branches/main" \
+              --jq '[.[] | select(.type == "required_status_checks") | .parameters.required_status_checks[].context] | unique | .[]')
+          fi
+          if [ -z "$required_checks" ]; then
+            problem="no required checks are set, so it is not safe to auto-merge. Pass required-checks, or add a ruleset on main that requires the candidate check."
             echo "::error::$problem"
             echo "problem=$problem" >> "$GITHUB_OUTPUT"
             exit 1
