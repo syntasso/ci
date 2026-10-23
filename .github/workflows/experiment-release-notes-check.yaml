@@ -1,0 +1,134 @@
+name: Experiment - Release notes check
+
+# Part of the automated releases experiment (syntasso/enterprise-kratix#1678).
+#
+# Fails when a PR that changes `path` has an empty or missing `release-note` or `docs-pr`
+# block in its description. NONE is a valid answer for both. PRs from bots are skipped.
+#
+# Run it on every PR, with no path filter. A required check that never runs blocks the PR,
+# so this workflow passes straight away for PRs it does not need to check.
+#
+# Call it with `secrets: inherit`. It uses EXPERIMENT_RELEASES_SLACK_WEBHOOK_URL.
+
+on:
+  workflow_call:
+    inputs:
+      path:
+        description: Only check PRs that change files in this folder, e.g. ske-portal-controller/
+        type: string
+        required: true
+      docs-repo:
+        description: The repo that docs PRs must be in, e.g. syntasso/kratix-docs
+        type: string
+        required: true
+      bot-authors:
+        description: PR authors to skip, one per line. GitHub App bots (like Dependabot) are always skipped.
+        type: string
+        default: syntassodev
+
+jobs:
+  check:
+    name: Release note and docs PR
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
+    concurrency:
+      group: experiment-release-notes-check-${{ github.event.pull_request.number }}
+      cancel-in-progress: true
+    steps:
+      - name: Decide whether this PR needs checking
+        id: scope
+        env:
+          AUTHOR: ${{ github.event.pull_request.user.login }}
+          AUTHOR_TYPE: ${{ github.event.pull_request.user.type }}
+          BOT_AUTHORS: ${{ inputs.bot-authors }}
+          FOLDER: ${{ inputs.path }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [ "$AUTHOR_TYPE" = "Bot" ] || grep -qxF "$AUTHOR" <<< "$BOT_AUTHORS"; then
+            echo "Skipping: $AUTHOR is a bot. Automation writes the release note for bot PRs."
+            echo "check=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          changed_files=$(gh api --paginate "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER/files" --jq '.[].filename')
+          if awk -v folder="$FOLDER" 'index($0, folder) == 1 { found = 1 } END { exit !found }' <<< "$changed_files"; then
+            echo "This PR changes $FOLDER, so it needs a release note and a docs PR (or NONE)."
+            echo "check=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "Skipping: this PR does not change $FOLDER."
+          echo "check=false" >> "$GITHUB_OUTPUT"
+
+      - name: Check the release-note and docs-pr blocks
+        if: steps.scope.outputs.check == 'true'
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+          DOCS_REPO: ${{ inputs.docs-repo }}
+        run: |
+          # PR descriptions written in the browser use Windows line endings.
+          body=$(tr -d '\r' <<< "$PR_BODY")
+
+          # Prints the lines inside a ```name fenced block. Fails if there is no such block.
+          read_block() {
+            awk -v name="$1" '
+              $0 ~ "^[[:space:]]*```" name "[[:space:]]*$" { inside = 1; found = 1; next }
+              inside && $0 ~ "^[[:space:]]*```[[:space:]]*$" { inside = 0; next }
+              inside { print }
+              END { exit !found }
+            ' <<< "$body"
+          }
+
+          # Removes blank lines and the spaces around each line.
+          non_blank_lines() {
+            sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//' | grep -v '^$' || true
+          }
+
+          failed=false
+
+          if ! release_note=$(read_block release-note); then
+            echo "::error::Add a release-note block to the PR description. Write the note for users, or NONE."
+            failed=true
+          elif [ -z "$(non_blank_lines <<< "$release_note")" ]; then
+            echo "::error::The release-note block is empty. Write the note for users, or NONE."
+            failed=true
+          else
+            echo "release-note: OK"
+          fi
+
+          if ! docs_pr=$(read_block docs-pr); then
+            echo "::error::Add a docs-pr block to the PR description. Paste the $DOCS_REPO PR URL, or NONE."
+            failed=true
+          else
+            docs_lines=$(non_blank_lines <<< "$docs_pr")
+            if [ -z "$docs_lines" ]; then
+              echo "::error::The docs-pr block is empty. Paste the $DOCS_REPO PR URL, or NONE."
+              failed=true
+            elif [ "$docs_lines" = "NONE" ]; then
+              echo "docs-pr: NONE"
+            else
+              while read -r line; do
+                if [[ "$line" =~ ^https://github\.com/${DOCS_REPO}/pull/[0-9]+$ ]]; then
+                  echo "docs-pr: $line"
+                else
+                  echo "::error::'$line' in the docs-pr block is not a $DOCS_REPO PR URL. Use one URL per line, or NONE."
+                  failed=true
+                fi
+              done <<< "$docs_lines"
+            fi
+          fi
+
+          if [ "$failed" = true ]; then
+            exit 1
+          fi
+
+      - name: Tell the experiment channel
+        if: always() && steps.scope.outputs.check == 'true'
+        uses: slackapi/slack-github-action@dcb1066f776dd043e64d0e8ba94ca15cc7e1875d # v4.0.0
+        with:
+          webhook: ${{ secrets.EXPERIMENT_RELEASES_SLACK_WEBHOOK_URL }}
+          webhook-type: incoming-webhook
+          payload: |
+            text: "${{ inputs.path }}: release notes check on PR #${{ github.event.pull_request.number }} *${{ job.status }}*. <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View run>"
