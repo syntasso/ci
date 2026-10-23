@@ -43,6 +43,8 @@ jobs:
       contents: write
       packages: write
       id-token: write
+      # To find the release PR that the tag's commit came from.
+      pull-requests: read
     concurrency:
       group: experiment-release-publish-${{ inputs.component }}
       cancel-in-progress: false
