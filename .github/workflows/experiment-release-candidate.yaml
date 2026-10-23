@@ -36,6 +36,13 @@ on:
 jobs:
   candidate:
     name: Build and scan
+    # Call this on every PR, with no condition in the caller. This job then skips itself on
+    # other PRs, and a skipped job passes. If the caller skipped instead, the check would
+    # get a different name and a required check would wait forever on every other PR.
+    if: >-
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.head.ref == format('release-please--branches--main--components--{0}', inputs.component) &&
+      github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     permissions:
       contents: read
