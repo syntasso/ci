@@ -1,0 +1,160 @@
+name: Experiment - Release publish
+
+# Part of the automated releases experiment (syntasso/enterprise-kratix#1640).
+#
+# Runs when release-please pushes a component's release tag. Finds the candidate image
+# that experiment-release-candidate.yaml built and scanned for the merged release PR, and
+# gives it the release tag. It never builds the image again.
+#
+# Safe to re-run. Image tags are never overwritten. Release files (the SBOMs) are made
+# from the same image digest, so uploading them again gives the same content.
+#
+# Call it with `secrets: inherit`. It uses EXPERIMENT_RELEASES_SLACK_WEBHOOK_URL.
+
+on:
+  workflow_call:
+    inputs:
+      component:
+        description: The release-please component, e.g. ske-portal-controller. Also its key in .release-please-manifest.json.
+        type: string
+        required: true
+      image:
+        description: The image name without a tag, e.g. ghcr.io/syntasso/ske-portal-controller
+        type: string
+        required: true
+      tag:
+        description: The git tag release-please created, e.g. ske-portal-controller-v1.2.3
+        type: string
+        required: true
+      bucket:
+        description: The S3 bucket for release files
+        type: string
+        required: true
+      aws-role-arn:
+        description: The AWS role to assume (with GitHub OIDC) to write to the bucket
+        type: string
+        required: true
+
+jobs:
+  publish:
+    name: Publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+      id-token: write
+    concurrency:
+      group: experiment-release-publish-${{ inputs.component }}
+      cancel-in-progress: false
+    env:
+      COMPONENT: ${{ inputs.component }}
+      IMAGE: ${{ inputs.image }}
+      TAG: ${{ inputs.tag }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Find the scanned candidate for this tag
+        id: candidate
+        run: |
+          version="${TAG#"$COMPONENT"-v}"
+          if ! [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::$TAG is not a $COMPONENT-vX.Y.Z tag"
+            exit 1
+          fi
+
+          merge_sha=$(gh api "repos/$GITHUB_REPOSITORY/commits/$TAG" --jq .sha)
+          release_branch="release-please--branches--main--components--$COMPONENT"
+          source_sha=$(gh api "repos/$GITHUB_REPOSITORY/commits/$merge_sha/pulls" \
+            --jq "[.[] | select(.merged_at != null and .head.ref == \"$release_branch\")][0].head.sha // empty")
+          if [ -z "$source_sha" ]; then
+            echo "::error::$TAG does not point at a merged $COMPONENT release PR"
+            exit 1
+          fi
+
+          if ! digest=$(docker buildx imagetools inspect "$IMAGE:candidate-$source_sha" --format '{{json .Manifest}}' | jq -r .digest); then
+            echo "::error::No candidate image for release PR commit $source_sha. Refusing to build a new one."
+            exit 1
+          fi
+
+          echo "Publishing $IMAGE@$digest (candidate-$source_sha) as v$version"
+          {
+            echo "version=$version"
+            echo "digest=$digest"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Give the candidate its release tag, never overwriting
+        env:
+          VERSION: ${{ steps.candidate.outputs.version }}
+          DIGEST: ${{ steps.candidate.outputs.digest }}
+        run: |
+          release_image="$IMAGE:v$VERSION"
+          if ! existing=$(docker buildx imagetools inspect "$release_image" --format '{{json .Manifest}}' 2>&1); then
+            if grep -qiE "not found|manifest unknown" <<< "$existing"; then
+              docker buildx imagetools create --tag "$release_image" "$IMAGE@$DIGEST"
+              exit 0
+            fi
+            echo "$existing"
+            exit 1
+          fi
+
+          existing_digest=$(jq -r .digest <<< "$existing")
+          if [ "$existing_digest" != "$DIGEST" ]; then
+            echo "::error::$release_image already points at $existing_digest, not the scanned $DIGEST. Refusing to overwrite it."
+            exit 1
+          fi
+          echo "$release_image already points at the scanned image."
+
+      - name: Move latest, unless a newer version has been merged
+        env:
+          VERSION: ${{ steps.candidate.outputs.version }}
+          DIGEST: ${{ steps.candidate.outputs.digest }}
+        run: |
+          version_on_main=$(gh api -H "Accept: application/vnd.github.raw" \
+            "repos/$GITHUB_REPOSITORY/contents/.release-please-manifest.json?ref=main" \
+            | jq -r --arg component "$COMPONENT" '.[$component]')
+          if [ "$version_on_main" != "$VERSION" ]; then
+            echo "main is on $version_on_main, so latest stays where it is."
+            exit 0
+          fi
+          docker buildx imagetools create --tag "$IMAGE:latest" "$IMAGE@$DIGEST"
+
+      - name: Make the SBOMs from the published image
+        env:
+          DIGEST: ${{ steps.candidate.outputs.digest }}
+          # Go binaries don't record module licences, so look them up via the Go module proxy.
+          SYFT_GOLANG_SEARCH_REMOTE_LICENSES: "true"
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin
+          syft "registry:$IMAGE@$DIGEST" --platform linux/amd64 -o "syft-json=$COMPONENT-sbom.json"
+          syft "registry:$IMAGE@$DIGEST" --platform linux/arm64 -o "syft-json=$COMPONENT-arm64-sbom.json"
+
+      - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          aws-region: eu-west-2
+          role-to-assume: ${{ inputs.aws-role-arn }}
+
+      - name: Upload the release files
+        env:
+          VERSION: ${{ steps.candidate.outputs.version }}
+          BUCKET: ${{ inputs.bucket }}
+        run: |
+          for file in "$COMPONENT-sbom.json" "$COMPONENT-arm64-sbom.json"; do
+            aws s3 cp "$file" "s3://$BUCKET/$COMPONENT/v$VERSION/$file"
+          done
+          gh release upload "$TAG" "$COMPONENT-sbom.json" "$COMPONENT-arm64-sbom.json" \
+            --repo "$GITHUB_REPOSITORY" --clobber
+
+      - name: Tell the experiment channel
+        if: always()
+        uses: slackapi/slack-github-action@dcb1066f776dd043e64d0e8ba94ca15cc7e1875d # v4.0.0
+        with:
+          webhook: ${{ secrets.EXPERIMENT_RELEASES_SLACK_WEBHOOK_URL }}
+          webhook-type: incoming-webhook
+          payload: |
+            text: "${{ inputs.component }}: publish ${{ inputs.tag }} (image ${{ steps.candidate.outputs.digest }}) *${{ job.status }}*. <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View run>"
