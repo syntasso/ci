@@ -114,10 +114,15 @@ jobs:
             ' <<< "$2"
           }
 
-          # Prints pass, fail, pending, skipping or cancel for the docs build, or nothing if it has not started.
+          # Prints pass, fail or pending for the docs build on one commit, or nothing if it has
+          # not started. It reads one exact commit, so a later push cannot be merged unchecked.
           build_result() {
-            gh pr checks "$1" --repo "$DOCS_REPO" --json name,bucket \
-              --jq "[.[] | select(.name == \"$DOCS_CHECK\")][0].bucket // empty" 2>/dev/null || true
+            gh api "repos/$DOCS_REPO/commits/$1/check-runs" --jq "
+              [.check_runs[] | select(.name == \"$DOCS_CHECK\")] | sort_by(.started_at) | last
+              | if . == null then empty
+                elif .status != \"completed\" then \"pending\"
+                elif .conclusion == \"success\" then \"pass\"
+                else \"fail\" end"
           }
 
           merged=""
@@ -130,7 +135,9 @@ jobs:
           docs_prs=$(grep -oE 'https://github\.com/[^[:space:]]+/pull/[0-9]+' <<< "$docs_prs" || true)
 
           for docs_pr in $docs_prs; do
-            state=$(gh pr view "$docs_pr" --json state --jq .state)
+            docs_pr_info=$(gh pr view "$docs_pr" --json state,headRefOid)
+            state=$(jq -r .state <<< "$docs_pr_info")
+            head_sha=$(jq -r .headRefOid <<< "$docs_pr_info")
             if [ "$state" = "MERGED" ]; then
               echo "$docs_pr: already merged"
               continue
@@ -140,8 +147,8 @@ jobs:
               exit 1
             fi
 
-            result=$(build_result "$docs_pr")
-            if [ "$result" = "fail" ] || [ "$result" = "cancel" ]; then
+            result=$(build_result "$head_sha")
+            if [ "$result" = "fail" ]; then
               echo "::error::The $DOCS_CHECK check failed on $docs_pr. Nothing after it was merged. Fix it and the next run carries on."
               exit 1
             fi
@@ -151,13 +158,14 @@ jobs:
               exit 0
             fi
 
-            gh pr merge "$docs_pr" --squash
+            gh pr merge "$docs_pr" --squash --match-head-commit "$head_sha"
             echo "$docs_pr: merged"
             merged="$merged $docs_pr"
           done
 
           # The notes PR links to pages the docs PRs added, so its build must have run against them.
-          behind_by=$(gh api "repos/$DOCS_REPO/compare/main...$(gh pr view "$NOTES_PR" --repo "$DOCS_REPO" --json headRefOid --jq .headRefOid)" --jq .behind_by)
+          notes_head_sha=$(gh pr view "$NOTES_PR" --repo "$DOCS_REPO" --json headRefOid --jq .headRefOid)
+          behind_by=$(gh api "repos/$DOCS_REPO/compare/main...$notes_head_sha" --jq .behind_by)
           if [ "$behind_by" -gt 0 ]; then
             gh pr update-branch "$NOTES_PR" --repo "$DOCS_REPO"
             echo "Release notes PR #$NOTES_PR was behind main, so its branch was updated. The next run merges it once the $DOCS_CHECK check passes."
@@ -165,8 +173,8 @@ jobs:
             exit 0
           fi
 
-          result=$(build_result "$NOTES_PR")
-          if [ "$result" = "fail" ] || [ "$result" = "cancel" ]; then
+          result=$(build_result "$notes_head_sha")
+          if [ "$result" = "fail" ]; then
             echo "::error::The $DOCS_CHECK check failed on release notes PR #$NOTES_PR."
             exit 1
           fi
@@ -176,7 +184,7 @@ jobs:
             exit 0
           fi
 
-          gh pr merge "$NOTES_PR" --repo "$DOCS_REPO" --squash --delete-branch
+          gh pr merge "$NOTES_PR" --repo "$DOCS_REPO" --squash --delete-branch --match-head-commit "$notes_head_sha"
           echo "Release notes PR #$NOTES_PR merged."
           echo "summary=${merged:+merged$merged, }merged the v$VERSION release notes (#$NOTES_PR)" >> "$GITHUB_OUTPUT"
 
