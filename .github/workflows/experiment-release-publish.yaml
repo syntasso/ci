@@ -152,11 +152,52 @@ jobs:
           gh release upload "$TAG" "$COMPONENT-sbom.json" "$COMPONENT-arm64-sbom.json" \
             --repo "$GITHUB_REPOSITORY" --clobber
 
-      - name: Tell the experiment channel
-        if: always()
-        uses: slackapi/slack-github-action@dcb1066f776dd043e64d0e8ba94ca15cc7e1875d # v4.0.0
-        with:
-          webhook: ${{ secrets.EXPERIMENT_RELEASES_SLACK_WEBHOOK_URL }}
-          webhook-type: incoming-webhook
-          payload: |
-            text: "${{ inputs.component }}: publish ${{ inputs.tag }} (image ${{ steps.candidate.outputs.digest }}) *${{ job.status }}*. <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View run>"
+      - name: Tell the experiment channel the release is out
+        env:
+          WEBHOOK: ${{ secrets.EXPERIMENT_RELEASES_SLACK_WEBHOOK_URL }}
+          VERSION: ${{ steps.candidate.outputs.version }}
+        run: |
+          release=$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json url,body)
+
+          # The changes, from the release-please changelog, as Slack bullets. Each line keeps its
+          # PR link, but drops the commit link and the "**component:**" prefix.
+          changes=$(jq -r .body <<< "$release" | grep '^\* ' \
+            | sed -E 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g' \
+            | sed -E 's/ \(\[[0-9a-f]{7,}\]\([^)]+\)\)$//; s/^\* \*\*[^*]+:\*\* /• /; s/^\* /• /' \
+            | sed -E 's/\[([^]]+)\]\(([^)]+)\)/<\2|\1>/g' || true)
+
+          # How long since the newest PR in this release merged.
+          newest_pr="" newest_merged_at=0
+          for number in $(jq -r .body <<< "$release" | grep -oE '\[#[0-9]+\]' | tr -d '[]#' | sort -u); do
+            merged_at=$(gh pr view "$number" --repo "$GITHUB_REPOSITORY" --json mergedAt --jq '.mergedAt // empty')
+            if [ -n "$merged_at" ] && [ "$(date -d "$merged_at" +%s)" -gt "$newest_merged_at" ]; then
+              newest_pr="$number"
+              newest_merged_at=$(date -d "$merged_at" +%s)
+            fi
+          done
+          took=""
+          if [ -n "$newest_pr" ]; then
+            seconds=$(( $(date +%s) - newest_merged_at ))
+            took=", $(( seconds / 60 ))m $(( seconds % 60 ))s after #$newest_pr merged"
+          fi
+
+          # ghcr.io/<owner>/<name> has its page at github.com/orgs/<owner>/packages/container/package/<name>.
+          owner_and_name="${IMAGE#ghcr.io/}"
+          image_url="https://github.com/orgs/${owner_and_name%%/*}/packages/container/package/${owner_and_name#*/}"
+
+          message=":rocket: *$COMPONENT v$VERSION is out*$took
+          ${changes:-• No changes listed.}
+          <$(jq -r .url <<< "$release")|Release> · <$image_url|Image>"
+          # The release is published by now, so a Slack problem must not fail the job.
+          curl -sSf -X POST -H 'Content-type: application/json' --data "$(jq -n --arg text "$message" '{text: $text}')" "$WEBHOOK" \
+            || echo "::warning::Could not post to Slack."
+
+      - name: Tell the experiment channel the publish failed
+        if: failure()
+        env:
+          WEBHOOK: ${{ secrets.EXPERIMENT_RELEASES_SLACK_WEBHOOK_URL }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          message=":octagonal_sign: *$COMPONENT $TAG did not publish*
+          The tag exists, but the image or release files may be missing. Fix the cause, then publish $TAG again by hand from \`main\`. Re-running this run reuses the old workflow. <$RUN_URL|Run log>"
+          curl -sSf -X POST -H 'Content-type: application/json' --data "$(jq -n --arg text "$message" '{text: $text}')" "$WEBHOOK"

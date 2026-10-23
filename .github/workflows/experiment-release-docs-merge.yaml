@@ -86,13 +86,16 @@ jobs:
           role-to-assume: ${{ inputs.aws-role-arn }}
 
       - name: Check the release is in S3
+        id: s3
         if: steps.notes.outputs.number != ''
         env:
           VERSION: ${{ steps.notes.outputs.version }}
           BUCKET: ${{ inputs.bucket }}
         run: |
           if [ -z "$(aws s3 ls "s3://$BUCKET/$COMPONENT/v$VERSION/")" ]; then
-            echo "::error::v$VERSION is not in s3://$BUCKET/$COMPONENT/v$VERSION/. Docs must not merge before the release is available."
+            problem="v$VERSION is not in s3://$BUCKET/$COMPONENT/v$VERSION/. Docs must not merge before the release is available."
+            echo "::error::$problem"
+            echo "problem=$problem" >> "$GITHUB_OUTPUT"
             exit 1
           fi
           echo "v$VERSION is in S3."
@@ -125,14 +128,20 @@ jobs:
                 else \"fail\" end"
           }
 
-          merged=""
+          # Stops the run, and gives the reason to the Slack step.
+          stuck() {
+            echo "::error::$1"
+            echo "problem=$1" >> "$GITHUB_OUTPUT"
+            exit 1
+          }
 
           notes_body=$(gh pr view "$NOTES_PR" --repo "$DOCS_REPO" --json body --jq .body | tr -d '\r')
           if ! docs_prs=$(read_block docs-pr "$notes_body"); then
-            echo "::error::Release notes PR #$NOTES_PR has no docs-pr block. Add one listing the docs PRs to merge, or NONE."
-            exit 1
+            stuck "Release notes PR #$NOTES_PR has no docs-pr block. Add one listing the docs PRs to merge, or NONE."
           fi
           docs_prs=$(grep -oE 'https://github\.com/[^[:space:]]+/pull/[0-9]+' <<< "$docs_prs" || true)
+          # The Slack step lists these once everything has merged.
+          echo "$docs_prs" > docs-prs.txt
 
           for docs_pr in $docs_prs; do
             docs_pr_info=$(gh pr view "$docs_pr" --json state,headRefOid)
@@ -143,24 +152,20 @@ jobs:
               continue
             fi
             if [ "$state" = "CLOSED" ]; then
-              echo "::error::$docs_pr is closed, but v$VERSION links to it. Reopen it, or remove it from the docs-pr block of #$NOTES_PR."
-              exit 1
+              stuck "$docs_pr is closed, but v$VERSION links to it. Reopen it, or remove it from the docs-pr block of #$NOTES_PR."
             fi
 
             result=$(build_result "$head_sha")
             if [ "$result" = "fail" ]; then
-              echo "::error::The $DOCS_CHECK check failed on $docs_pr. Nothing after it was merged. Fix it and the next run carries on."
-              exit 1
+              stuck "The $DOCS_CHECK check failed on $docs_pr. Nothing after it was merged. Fix it and the next run carries on."
             fi
             if [ "$result" != "pass" ]; then
               echo "$docs_pr: waiting for the $DOCS_CHECK check (${result:-not started}). The next run carries on."
-              echo "summary=${merged:+merged$merged, }waiting for the $DOCS_CHECK check on $docs_pr" >> "$GITHUB_OUTPUT"
               exit 0
             fi
 
             gh pr merge "$docs_pr" --squash --match-head-commit "$head_sha"
             echo "$docs_pr: merged"
-            merged="$merged $docs_pr"
           done
 
           # The notes PR links to pages the docs PRs added, so its build must have run against them.
@@ -169,31 +174,58 @@ jobs:
           if [ "$behind_by" -gt 0 ]; then
             gh pr update-branch "$NOTES_PR" --repo "$DOCS_REPO"
             echo "Release notes PR #$NOTES_PR was behind main, so its branch was updated. The next run merges it once the $DOCS_CHECK check passes."
-            echo "summary=${merged:+merged$merged, }updated #$NOTES_PR with main and waiting for its $DOCS_CHECK check" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
           result=$(build_result "$notes_head_sha")
           if [ "$result" = "fail" ]; then
-            echo "::error::The $DOCS_CHECK check failed on release notes PR #$NOTES_PR."
-            exit 1
+            stuck "The $DOCS_CHECK check failed on release notes PR #$NOTES_PR."
           fi
           if [ "$result" != "pass" ]; then
             echo "Waiting for the $DOCS_CHECK check on release notes PR #$NOTES_PR (${result:-not started})."
-            echo "summary=${merged:+merged$merged, }waiting for the $DOCS_CHECK check on #$NOTES_PR" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
           gh pr merge "$NOTES_PR" --repo "$DOCS_REPO" --squash --delete-branch --match-head-commit "$notes_head_sha"
           echo "Release notes PR #$NOTES_PR merged."
-          echo "summary=${merged:+merged$merged, }merged the v$VERSION release notes (#$NOTES_PR)" >> "$GITHUB_OUTPUT"
+          echo "live=true" >> "$GITHUB_OUTPUT"
 
-      # This runs every 15 minutes, so only post when it merged something or failed.
-      - name: Tell the experiment channel
-        if: always() && (failure() || contains(steps.merge.outputs.summary, 'merged'))
-        uses: slackapi/slack-github-action@dcb1066f776dd043e64d0e8ba94ca15cc7e1875d # v4.0.0
-        with:
-          webhook: ${{ secrets.EXPERIMENT_RELEASES_SLACK_WEBHOOK_URL }}
-          webhook-type: incoming-webhook
-          payload: |
-            text: "${{ inputs.component }}: release docs merge for v${{ steps.notes.outputs.version }} *${{ job.status }}*: ${{ steps.merge.outputs.summary }} <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View run>"
+      # This runs every 15 minutes, so it stays quiet while it waits. It only posts when the
+      # docs are live, or when they are stuck.
+      - name: Tell the experiment channel the docs are live
+        if: steps.merge.outputs.live == 'true'
+        env:
+          WEBHOOK: ${{ secrets.EXPERIMENT_RELEASES_SLACK_WEBHOOK_URL }}
+          NOTES_PR: ${{ steps.notes.outputs.number }}
+          VERSION: ${{ steps.notes.outputs.version }}
+        run: |
+          published_at=$(gh release view "$COMPONENT-v$VERSION" --repo "$GITHUB_REPOSITORY" --json publishedAt --jq .publishedAt)
+          seconds=$(( $(date +%s) - $(date -d "$published_at" +%s) ))
+
+          merged_docs=""
+          while read -r docs_pr; do
+            if [ -z "$docs_pr" ]; then
+              continue
+            fi
+            title=$(gh pr view "$docs_pr" --json title --jq .title | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g')
+            merged_docs="$merged_docs<$docs_pr|#${docs_pr##*/}> $title · "
+          done < docs-prs.txt
+          notes_url=$(gh pr view "$NOTES_PR" --repo "$DOCS_REPO" --json url --jq .url)
+
+          message=":books: *$COMPONENT v$VERSION docs are live*, $(( seconds / 60 ))m $(( seconds % 60 ))s after the release
+          ${merged_docs:+Merged: $merged_docs}<$notes_url|Release notes>"
+          # The docs are merged by now, so a Slack problem must not fail the job.
+          curl -sSf -X POST -H 'Content-type: application/json' --data "$(jq -n --arg text "$message" '{text: $text}')" "$WEBHOOK" \
+            || echo "::warning::Could not post to Slack."
+
+      - name: Tell the experiment channel the docs are stuck
+        if: failure()
+        env:
+          WEBHOOK: ${{ secrets.EXPERIMENT_RELEASES_SLACK_WEBHOOK_URL }}
+          VERSION: ${{ steps.notes.outputs.version }}
+          PROBLEM: ${{ steps.s3.outputs.problem || steps.merge.outputs.problem || 'the docs merge job failed' }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          message=":warning: *$COMPONENT ${VERSION:+v$VERSION }docs are stuck*
+          $PROBLEM <$RUN_URL|Run log>"
+          curl -sSf -X POST -H 'Content-type: application/json' --data "$(jq -n --arg text "$message" '{text: $text}')" "$WEBHOOK"

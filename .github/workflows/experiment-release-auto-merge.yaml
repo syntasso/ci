@@ -78,7 +78,9 @@ jobs:
           required_checks=$(gh api "repos/$GITHUB_REPOSITORY/rules/branches/main" \
             --jq '[.[] | select(.type == "required_status_checks") | .parameters.required_status_checks[].context] | unique | .[]')
           if [ -z "$required_checks" ]; then
-            echo "::error::main has no required checks, so it is not safe to auto-merge. Add a ruleset that requires the candidate check."
+            problem="main has no required checks, so it is not safe to auto-merge. Add a ruleset that requires the candidate check."
+            echo "::error::$problem"
+            echo "problem=$problem" >> "$GITHUB_OUTPUT"
             exit 1
           fi
           check_runs=$(gh api "repos/$GITHUB_REPOSITORY/commits/$head_sha/check-runs?per_page=100")
@@ -102,14 +104,16 @@ jobs:
 
           gh pr merge "$number" --repo "$GITHUB_REPOSITORY" --squash --match-head-commit "$head_sha"
           echo "Merged release PR #$number."
-          echo "summary=merged release PR #$number ($head_sha)" >> "$GITHUB_OUTPUT"
 
-      # This runs after every push to main, so only post when it merged or failed.
-      - name: Tell the experiment channel
-        if: always() && (failure() || steps.merge.outputs.summary != '')
-        uses: slackapi/slack-github-action@dcb1066f776dd043e64d0e8ba94ca15cc7e1875d # v4.0.0
-        with:
-          webhook: ${{ secrets.EXPERIMENT_RELEASES_SLACK_WEBHOOK_URL }}
-          webhook-type: incoming-webhook
-          payload: |
-            text: "${{ inputs.component }}: release auto-merge *${{ job.status }}*: ${{ steps.merge.outputs.summary }} <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View run>"
+      # Quiet when it merges: the "is out" message comes from the publish workflow.
+      # Only tell people when it fails.
+      - name: Tell the experiment channel the auto-merge failed
+        if: failure()
+        env:
+          WEBHOOK: ${{ secrets.EXPERIMENT_RELEASES_SLACK_WEBHOOK_URL }}
+          PROBLEM: ${{ steps.merge.outputs.problem || 'the release PR could not be merged' }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          message=":octagonal_sign: *$COMPONENT release auto-merge failed*
+          ${PROBLEM^}. <$RUN_URL|Run log>"
+          curl -sSf -X POST -H 'Content-type: application/json' --data "$(jq -n --arg text "$message" '{text: $text}')" "$WEBHOOK"

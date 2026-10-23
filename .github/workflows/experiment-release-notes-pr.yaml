@@ -414,12 +414,23 @@ jobs:
           echo "Opened $url"
           echo "summary=opened <$url|the v$VERSION notes PR> (chart $CHART_VERSION)" >> "$GITHUB_OUTPUT"
 
-      # This runs every 15 minutes, so only post when it opened a PR or failed.
-      - name: Tell the experiment channel
-        if: always() && (failure() || steps.pr.outputs.summary != '')
-        uses: slackapi/slack-github-action@dcb1066f776dd043e64d0e8ba94ca15cc7e1875d # v4.0.0
-        with:
-          webhook: ${{ secrets.EXPERIMENT_RELEASES_SLACK_WEBHOOK_URL }}
-          webhook-type: incoming-webhook
-          payload: |
-            text: "${{ inputs.component }}: release notes PR *${{ job.status }}*: ${{ steps.pr.outputs.summary || steps.chart.outputs.summary || steps.release.outputs.summary }} <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View run>"
+      # Quiet when it works: the "docs are live" message comes from the docs merge workflow.
+      # Only tell people when the docs are stuck.
+      - name: Tell the experiment channel the docs are stuck
+        if: failure()
+        env:
+          WEBHOOK: ${{ secrets.EXPERIMENT_RELEASES_SLACK_WEBHOOK_URL }}
+          VERSION: ${{ steps.release.outputs.version }}
+          CHART_TIMED_OUT: ${{ steps.chart.outcome == 'failure' }}
+          CHART_SUMMARY: ${{ steps.chart.outputs.summary }}
+          CHART_REPO: ${{ inputs.chart-repo }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          if [ "$CHART_TIMED_OUT" = true ]; then
+            message=":warning: *$COMPONENT v$VERSION docs are stuck: no chart release ships it yet*
+          ${CHART_SUMMARY^}. Check the chart release in $CHART_REPO. <$RUN_URL|Run log>"
+          else
+            message=":warning: *$COMPONENT ${VERSION:+v$VERSION }docs are stuck: the release notes PR could not be opened*
+          <$RUN_URL|Run log>"
+          fi
+          curl -sSf -X POST -H 'Content-type: application/json' --data "$(jq -n --arg text "$message" '{text: $text}')" "$WEBHOOK"

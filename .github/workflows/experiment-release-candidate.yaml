@@ -106,6 +106,7 @@ jobs:
           echo "digest=$digest" >> "$GITHUB_OUTPUT"
 
       - name: Scan linux/amd64
+        id: scan-amd64
         uses: snyk/actions/docker@11b673cfb4b0dc0d860a1323caa199d54950dcce # master (no stable release)
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
@@ -114,6 +115,7 @@ jobs:
           args: --platform=linux/amd64 --severity-threshold=high --policy-path=.snyk --username=syntassodev --password=${{ secrets.GHCR_TOKEN }}
 
       - name: Scan linux/arm64
+        id: scan-arm64
         uses: snyk/actions/docker@11b673cfb4b0dc0d860a1323caa199d54950dcce # master (no stable release)
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
@@ -121,11 +123,24 @@ jobs:
           image: ${{ inputs.image }}@${{ steps.candidate.outputs.digest }}
           args: --platform=linux/arm64 --severity-threshold=high --policy-path=.snyk --username=syntassodev --password=${{ secrets.GHCR_TOKEN }}
 
-      - name: Tell the experiment channel
-        if: always()
-        uses: slackapi/slack-github-action@dcb1066f776dd043e64d0e8ba94ca15cc7e1875d # v4.0.0
-        with:
-          webhook: ${{ secrets.EXPERIMENT_RELEASES_SLACK_WEBHOOK_URL }}
-          webhook-type: incoming-webhook
-          payload: |
-            text: "${{ inputs.component }}: build and scan candidate for release PR #${{ github.event.pull_request.number }} (${{ github.event.pull_request.head.sha }}) *${{ job.status }}*. <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View run>"
+      # Quiet when the candidate passes. Only tell people when the release is blocked.
+      - name: Tell the experiment channel the release is blocked
+        if: failure()
+        env:
+          WEBHOOK: ${{ secrets.EXPERIMENT_RELEASES_SLACK_WEBHOOK_URL }}
+          COMPONENT: ${{ inputs.component }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          SCAN_FAILED: ${{ steps.scan-amd64.outcome == 'failure' || steps.scan-arm64.outcome == 'failure' }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          version="${PR_TITLE##* }"
+          if [ "$SCAN_FAILED" = true ]; then
+            message=":octagonal_sign: *$COMPONENT v$version is blocked: Snyk found high severity vulnerabilities*
+          Release PR <$PR_URL|#$PR_NUMBER> can't merge. Fix it on \`main\`, or accept the CVEs in \`.snyk\` with a reason and an expiry date. <$RUN_URL|Scan results>"
+          else
+            message=":octagonal_sign: *$COMPONENT v$version is blocked: the candidate build failed*
+          Release PR <$PR_URL|#$PR_NUMBER> can't merge until it builds. <$RUN_URL|Build log>"
+          fi
+          curl -sSf -X POST -H 'Content-type: application/json' --data "$(jq -n --arg text "$message" '{text: $text}')" "$WEBHOOK"

@@ -8,7 +8,7 @@ name: Experiment - Release notes check
 # Run it on every PR, with no path filter. A required check that never runs blocks the PR,
 # so this workflow passes straight away for PRs it does not need to check.
 #
-# Call it with `secrets: inherit`. It uses EXPERIMENT_RELEASES_SLACK_WEBHOOK_URL.
+# It does not post to Slack. A failure is for the PR author, and it shows on the PR.
 
 on:
   workflow_call:
@@ -123,12 +123,3 @@ jobs:
           if [ "$failed" = true ]; then
             exit 1
           fi
-
-      - name: Tell the experiment channel
-        if: always() && steps.scope.outputs.check == 'true'
-        uses: slackapi/slack-github-action@dcb1066f776dd043e64d0e8ba94ca15cc7e1875d # v4.0.0
-        with:
-          webhook: ${{ secrets.EXPERIMENT_RELEASES_SLACK_WEBHOOK_URL }}
-          webhook-type: incoming-webhook
-          payload: |
-            text: "${{ inputs.path }}: release notes check on PR #${{ github.event.pull_request.number }} *${{ job.status }}*. <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View run>"
