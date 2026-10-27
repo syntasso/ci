@@ -162,3 +162,28 @@ jobs:
           git stash
           git pull origin main --rebase
           git push origin main
+      - name: Checkout ske-mcp-server repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: syntasso/ske-mcp-server
+          ssh-key: ${{ secrets.MCP_SERVER_READ_WRITE_KEY }}
+          path: ske-mcp-server
+      - name: Update MCP Server image to latest Chainguard SHA
+        working-directory: ske-mcp-server
+        run: |
+          ${{ github.workspace }}/enterprise-kratix/scripts/bump-dockerfile-to-latest-chainguard-sha $latest_wolfi $latest_static $latest_gitbase $latest_golang Dockerfile
+
+          echo "checking for local diffs..."
+          if git diff --quiet -- Dockerfile; then
+            echo "No local changes to commit."
+            exit 0
+          fi
+
+          git config user.name "syntassodev"
+          git config user.email "kratix@syntasso.io"
+
+          echo "Changes made, committing and pushing..."
+          git add Dockerfile
+          git commit -m "fix(deps): update Chainguard SHA"
+          git pull origin main --rebase
+          git push origin main
