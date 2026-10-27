@@ -243,3 +243,39 @@ jobs:
           SKE_LICENSE_TOKEN: ${{ secrets.SKE_LICENSE_TOKEN }}
           GH_TOKEN: ${{ secrets.ENTERPRISE_KRATIX_GH_TOKEN }}
           DOCKER_BUILDKIT: "1"
+
+  # Contract test. They run the work creator inside their own
+  # Pipelines, as described in enterprise-kratix's
+  # docs/customer-guides/create-works-from-a-pipeline.md. If this fails, the
+  # change breaks that guide.
+  ske-work-creator-contract-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout ci repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: syntasso/ci
+      - name: Setup Common Environment
+        uses: ./.github/actions/setup-common
+        with:
+          repository: syntasso/enterprise-kratix
+          ref: ${{ inputs.ske_sha }}
+          path: enterprise-kratix
+          ssh_key: ${{ secrets.ENTERPRISE_KRATIX_DEPLOY_KEY_READ_PUSH }}
+          submodules: 'true'
+          submodule_repository: syntasso/kratix
+          submodule_ref: ${{ inputs.sha }}
+          submodule_path: enterprise-kratix/read-only-kratix
+          tools_base_path: enterprise-kratix/read-only-kratix
+          ssh_session: ${{ inputs.ssh_session }}
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - name: Login to ghcr
+        run: |
+          echo "${{ secrets.GHCR_TOKEN }}" | docker login ghcr.io -u syntassodev --password-stdin
+      - name: Bring up SKE
+        run: make -C enterprise-kratix platform-up
+        env:
+          DOCKER_BUILDKIT: "1"
+      - name: Run the work creator contract test
+        run: make -C enterprise-kratix test-work-creator-contract
