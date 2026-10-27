@@ -244,7 +244,7 @@ jobs:
           GH_TOKEN: ${{ secrets.ENTERPRISE_KRATIX_GH_TOKEN }}
           DOCKER_BUILDKIT: "1"
 
-  # Contract test for Lavender. They run the work creator inside their own
+  # Contract test. They run the work creator inside their own
   # Pipelines, as described in enterprise-kratix's
   # docs/customer-guides/create-works-from-a-pipeline.md. If this fails, the
   # change breaks that guide.
