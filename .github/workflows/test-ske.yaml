@@ -166,7 +166,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GHCR_TOKEN }}
           SKE_LICENSE_TOKEN: ${{ secrets.SKE_LICENSE_TOKEN }}
 
-  ske-platform-manager-system-test:
+  ske-system-test:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout ci repository
@@ -196,6 +196,7 @@ jobs:
         run: |
           echo "${{ secrets.GHCR_TOKEN }}" | docker login ghcr.io -u syntassodev --password-stdin
       - name: Run make test-e2e
+        id: platform-manager-e2e
         run: |
           cd enterprise-kratix/ske-platform-manager
           make test-e2e
@@ -203,6 +204,13 @@ jobs:
           SKE_LICENSE_TOKEN: ${{ secrets.SKE_LICENSE_TOKEN }}
           GH_TOKEN: ${{ secrets.ENTERPRISE_KRATIX_GH_TOKEN }}
           DOCKER_BUILDKIT: "1"
+      - name: Run the pull request delivery e2e
+        if: ${{ !cancelled() && steps.platform-manager-e2e.outcome != 'skipped' }}
+        run: make -C enterprise-kratix ske-delivery-e2e
+        env:
+          DELIVERY_REPO_URL: https://github.com/syntasso/testing-git-writer-private
+          DELIVERY_GIT_TOKEN: ${{ secrets.TEST_GIT_WRITER_GITHUB_HTTP_PAT }}
+          PLATFORM: kind-platform
 
   ske-platform-manager-health-agent-test:
     runs-on: sprinters:aws:t3.2xlarge:ubuntu-latest:temp=64/gp3/max/max
