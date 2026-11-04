@@ -187,3 +187,29 @@ jobs:
           git commit -m "fix(deps): update Chainguard SHA"
           git pull origin main --rebase
           git push origin main
+      - name: Checkout backstage repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: syntasso/backstage
+          ssh-key: ${{ secrets.BACKSTAGE_READ_WRITE_KEY }}
+          path: backstage
+      - name: Update Backstage image to latest Chainguard SHA
+        working-directory: backstage
+        run: |
+          dockerfile_path=packages/backend/Dockerfile
+          ${{ github.workspace }}/enterprise-kratix/scripts/bump-dockerfile-to-latest-chainguard-sha $latest_wolfi $latest_static $latest_gitbase $latest_golang $dockerfile_path
+
+          echo "checking for local diffs..."
+          if git diff --quiet -- $dockerfile_path; then
+            echo "No local changes to commit."
+            exit 0
+          fi
+
+          git config user.name "syntassodev"
+          git config user.email "kratix@syntasso.io"
+
+          echo "Changes made, committing and pushing..."
+          git add $dockerfile_path
+          git commit -m "fix(deps): update Chainguard SHA"
+          git pull origin main --rebase
+          git push origin main
