@@ -130,6 +130,9 @@ jobs:
           GH_TOKEN: ${{ secrets.GH_RELEASE_CREATOR_TOKEN }}
           DOCKER_PRUNE: "true"
         run: |
+          # Every pod in the kind cluster shares the runner's inotify limits; at the runner's default
+          # Backstage cannot watch its config file and exits with EMFILE.
+          sudo sysctl -w fs.inotify.max_user_instances=512 fs.inotify.max_user_watches=524288
           # deleting unnecessary files to gain some hard disk space
           sudo rm -rf /usr/share/dotnet
           sudo rm -rf /opt/ghc
