@@ -9,7 +9,11 @@ name: Experiment - Release notes PR
 #      the SKE Operator Helm Chart), because each entry says which chart version it was
 #      released in. Without a chart, it goes straight on and leaves that line out.
 #   2. It collects the release-note block from every PR in the release.
-#   3. It writes the entry at the top of the release notes page and opens a PR.
+#   3. It writes the entry and opens a PR. There is one entry per minor, e.g. "### v0.10":
+#      - A new minor gets a new entry at the top of the release notes page.
+#      - A patch updates the "Latest version" line of its minor's entry, and moves the old
+#        line into an "Earlier versions" list. experiment-release-pr.yaml makes sure a patch
+#        only ever has dependency and base image updates, so there is nothing else to add.
 #
 # It opens one PR at a time. The next release waits until the last notes PR is merged,
 # so the PRs never conflict with each other.
@@ -320,16 +324,27 @@ jobs:
             echo "#$number: added to the notes"
           done
 
+          # A patch can only be folded into its minor's entry when it has no notes of its own.
+          has_notes=false
+          if [ -s fixes.md ] || [ -s features.md ] || [ -s maintenance.md ]; then
+            has_notes=true
+          fi
+          echo "has-notes=$has_notes" >> "$GITHUB_OUTPUT"
+
           if [ "$has_dependency_updates" = true ]; then
             echo "* Dependency and base image updates." >> maintenance.md
           fi
 
+          release_line="[v$VERSION](${RELEASE_URL_BASE}$COMPONENT/v$VERSION/) ($(git log -1 --format=%cs "$TAG"))"
+          if [ -n "$CHART_VERSION" ]; then
+            release_line="$release_line, released via the $CHART_NAME [version $CHART_VERSION](${CHART_URL_BASE}$CHART_VERSION/)"
+          fi
+          echo "$release_line" > release-line.md
+
           {
-            echo "### [v$VERSION](${RELEASE_URL_BASE}$COMPONENT/v$VERSION/) ($(git log -1 --format=%cs "$TAG"))"
-            if [ -n "$CHART_VERSION" ]; then
-              echo
-              echo "Released via the $CHART_NAME [version $CHART_VERSION](${CHART_URL_BASE}$CHART_VERSION/)"
-            fi
+            echo "### v${VERSION%.*}"
+            echo
+            echo "Latest version: $release_line"
             if [ ! -s fixes.md ] && [ ! -s features.md ] && [ ! -s maintenance.md ]; then
               echo
               echo "No user-facing changes."
@@ -382,6 +397,7 @@ jobs:
           DOCS_FILE: ${{ inputs.docs-file }}
           DOCS_SCOPE: ${{ inputs.docs-scope }}
           DOCS_LABEL: ${{ inputs.docs-label }}
+          HAS_NOTES: ${{ steps.notes.outputs.has-notes }}
         run: |
           cd docs-repo
           if ! grep -qx '## Release Notes' "$DOCS_FILE"; then
@@ -389,16 +405,59 @@ jobs:
             exit 1
           fi
 
-          # Put the new entry straight under the heading, above the older entries.
-          awk -v entry_file=../entry.md '
-            { print }
-            !added && $0 == "## Release Notes" {
-              print ""
-              while ((getline line < entry_file) > 0) print line
-              added = 1
-            }
-          ' "$DOCS_FILE" > "$DOCS_FILE.new"
-          mv "$DOCS_FILE.new" "$DOCS_FILE"
+          minor_heading="### v${VERSION%.*}"
+          if grep -qxF "$minor_heading" "$DOCS_FILE"; then
+            if [ "$HAS_NOTES" = true ]; then
+              echo "::error::v$VERSION is a patch of v${VERSION%.*}, but it has release notes of its own. A release with changes from a person should be a new minor (see experiment-release-pr.yaml)."
+              exit 1
+            fi
+
+            echo "v$VERSION is a patch, so it updates the '$minor_heading' entry."
+            python3 - "$DOCS_FILE" "$minor_heading" "$(cat ../release-line.md)" <<'EOF'
+          import sys
+
+          docs_file, minor_heading, release_line = sys.argv[1:]
+          latest_prefix = "Latest version: "
+          earlier_heading = f"Earlier {minor_heading[4:]} versions. Patches only add dependency and base image updates:"
+
+          lines = open(docs_file).read().split("\n")
+
+          # The minor's entry runs until the next entry or section heading.
+          start = lines.index(minor_heading)
+          end = start + 1
+          while end < len(lines) and not lines[end].startswith(("### ", "## ")):
+              end += 1
+
+          latest = next(i for i in range(start, end) if lines[i].startswith(latest_prefix))
+          previous_release_line = lines[latest][len(latest_prefix):]
+          lines[latest] = latest_prefix + release_line
+
+          if earlier_heading in lines[start:end]:
+              # Newest first: straight under the list heading and its blank line.
+              lines.insert(lines.index(earlier_heading, start) + 2, "* " + previous_release_line)
+          else:
+              # At the end of the entry, before the blank lines that separate it from the next one.
+              at = end
+              while lines[at - 1] == "":
+                  at -= 1
+              lines[at:at] = ["", earlier_heading, "", "* " + previous_release_line]
+
+          open(docs_file, "w").write("\n".join(lines))
+          EOF
+          else
+            echo "v$VERSION starts a new '$minor_heading' entry."
+            # Put the new entry straight under the heading, above the older entries.
+            awk -v entry_file=../entry.md '
+              { print }
+              !added && $0 == "## Release Notes" {
+                print ""
+                while ((getline line < entry_file) > 0) print line
+                added = 1
+              }
+            ' "$DOCS_FILE" > "$DOCS_FILE.new"
+            mv "$DOCS_FILE.new" "$DOCS_FILE"
+          fi
+          git diff
 
           title="docs($DOCS_SCOPE): release notes for $DISPLAY_NAME v$VERSION"
           git config user.name "syntassodev"

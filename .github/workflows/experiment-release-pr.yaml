@@ -1,0 +1,123 @@
+name: Experiment - Release PR
+
+# Part of the automated releases experiment (syntasso/enterprise-kratix#1640).
+#
+# Opens or updates a component's release-please PR, and picks its version:
+#
+#   - Any change from a person since the last release: the next minor, e.g. 0.10.0.
+#   - Only bot changes (Renovate PRs and base image bumps): a patch, e.g. 0.10.1.
+#
+# So a patch only ever has dependency and base image updates. That lets
+# experiment-release-notes-pr.yaml fold each patch into its minor's release notes entry.
+#
+# Call it from the job that runs once the component's tests pass on main, with
+# `secrets: inherit`. It uses RELEASE_PLEASE_TOKEN, because a PR opened with GITHUB_TOKEN
+# starts no workflow, so the candidate build would never run.
+
+on:
+  workflow_call:
+    inputs:
+      component:
+        description: The release-please component, e.g. ske-portal-controller
+        type: string
+        required: true
+      path:
+        description: The release-please package path, e.g. ske-portal-controller
+        type: string
+        required: true
+      bot-authors:
+        description: PR authors that count as bots, one per line. GitHub App bots always count.
+        type: string
+        default: syntassodev
+
+jobs:
+  release-pr:
+    name: Update the release PR
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    concurrency:
+      group: experiment-release-pr-${{ inputs.component }}
+      cancel-in-progress: false
+    env:
+      COMPONENT: ${{ inputs.component }}
+      PACKAGE_PATH: ${{ inputs.path }}
+      GH_TOKEN: ${{ secrets.RELEASE_PLEASE_TOKEN }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # The latest main, not the commit that started this run. release-please reads the
+          # latest main too, so the version is picked from the same commits it releases.
+          ref: main
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Pick the next version
+        id: version
+        env:
+          BOT_AUTHORS: ${{ inputs.bot-authors }}
+        run: |
+          last_version=$(jq -r --arg path "$PACKAGE_PATH" '.[$path] // empty' .release-please-manifest.json)
+          last_tag="$COMPONENT-v$last_version"
+          if [ -z "$last_version" ] || ! git rev-parse -q --verify "refs/tags/$last_tag" > /dev/null; then
+            echo "::warning::Could not find the last release tag ($last_tag), so release-please picks the version."
+            exit 0
+          fi
+
+          # The same rules as the release notes: a commit with no PR is a base image bump, and
+          # a PR from a bot author is a dependency update. Anything else is from a person.
+          from_a_person=false
+          for sha in $(git log --format=%H "$last_tag..HEAD" -- "$PACKAGE_PATH"); do
+            pr=$(gh api "repos/$GITHUB_REPOSITORY/commits/$sha/pulls" --jq '[.[] | select(.merged_at != null)][0] // empty')
+            if [ -z "$pr" ]; then
+              echo "$(git log -1 --format='%h %s' "$sha"): no PR, so a bot change"
+              continue
+            fi
+
+            number=$(jq -r .number <<< "$pr")
+            head_ref=$(jq -r .head.ref <<< "$pr")
+            if [[ "$head_ref" == release-please--* ]]; then
+              continue
+            fi
+
+            author=$(jq -r .user.login <<< "$pr")
+            author_type=$(jq -r .user.type <<< "$pr")
+            if [ "$author_type" = "Bot" ] || grep -qxF "$author" <<< "$BOT_AUTHORS"; then
+              echo "#$number ($author): a bot change"
+              continue
+            fi
+
+            echo "#$number ($author): a change from a person"
+            from_a_person=true
+          done
+
+          if [ "$from_a_person" = false ]; then
+            echo "Only bot changes since $last_tag, so release-please makes a patch."
+            exit 0
+          fi
+
+          IFS=. read -r major minor _ <<< "$last_version"
+          next_minor="$major.$((minor + 1)).0"
+          echo "Changes from a person since $last_tag, so the next release is $next_minor."
+          echo "release-as=$next_minor" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+      - run: npm install -g release-please
+
+      - name: Open or update the release PR
+        env:
+          RELEASE_AS: ${{ steps.version.outputs.release-as }}
+        run: |
+          release_as_args=()
+          if [ -n "$RELEASE_AS" ]; then
+            release_as_args=(--release-as "$RELEASE_AS")
+          fi
+          release-please \
+            --token="$GH_TOKEN" \
+            --repo-url="$GITHUB_REPOSITORY" \
+            --path "$PACKAGE_PATH" \
+            "${release_as_args[@]}" \
+            release-pr
