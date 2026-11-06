@@ -23,6 +23,10 @@ name: Experiment - Release auto-merge
 # built and scanned, but it does not merge. Remove the label to release. Have the caller also
 # run this on pull_request "unlabeled", so removing the label merges straight away.
 #
+# With merge-on-weekends false, it does not merge on Saturday or Sunday (UTC). Have the caller
+# also run this on a weekday morning schedule, so a release held over the weekend merges on
+# Monday without waiting for the next push to main.
+#
 # Call it with `secrets: inherit`. It uses RELEASE_PLEASE_TOKEN (a merge with GITHUB_TOKEN
 # would not start the tag workflow) and EXPERIMENT_RELEASES_SLACK_WEBHOOK_URL.
 
@@ -47,6 +51,10 @@ on:
         description: While the release PR has this label, it is not merged.
         type: string
         default: hold-release
+      merge-on-weekends:
+        description: When false, the release PR is not merged on Saturday or Sunday (UTC).
+        type: boolean
+        default: true
 
 jobs:
   merge:
@@ -62,6 +70,7 @@ jobs:
       IMAGE_PATHS: ${{ inputs.paths }}
       REQUIRED_CHECKS: ${{ inputs.required-checks }}
       HOLD_LABEL: ${{ inputs.hold-label }}
+      MERGE_ON_WEEKENDS: ${{ inputs.merge-on-weekends }}
       GH_TOKEN: ${{ secrets.RELEASE_PLEASE_TOKEN }}
     steps:
       - name: Merge the release PR if it is safe
@@ -80,6 +89,12 @@ jobs:
 
           if jq -e --arg label "$HOLD_LABEL" 'any(.labels[]; .name == $label)' <<< "$release_pr" > /dev/null; then
             echo "Release PR #$number has the '$HOLD_LABEL' label, so it is held. Remove the label to release it."
+            exit 0
+          fi
+
+          # date +%u: 6 is Saturday, 7 is Sunday.
+          if [ "$MERGE_ON_WEEKENDS" = false ] && [ "$(date -u +%u)" -ge 6 ]; then
+            echo "It is the weekend, so release PR #$number is held until Monday."
             exit 0
           fi
 
