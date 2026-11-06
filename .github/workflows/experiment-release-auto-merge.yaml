@@ -18,6 +18,11 @@ name: Experiment - Release auto-merge
 # It merges with --match-head-commit and never with --admin, so a ruleset on main, if there
 # is one, still applies.
 #
+# To hold a release, for example to batch a few changes together, add the hold-label
+# (default "hold-release") to the release PR. The PR keeps updating and its image is still
+# built and scanned, but it does not merge. Remove the label to release. Have the caller also
+# run this on pull_request "unlabeled", so removing the label merges straight away.
+#
 # Call it with `secrets: inherit`. It uses RELEASE_PLEASE_TOKEN (a merge with GITHUB_TOKEN
 # would not start the tag workflow) and EXPERIMENT_RELEASES_SLACK_WEBHOOK_URL.
 
@@ -38,6 +43,10 @@ on:
           "candidate / Build and scan". When empty, the required checks of the ruleset on main are used.
         type: string
         default: ''
+      hold-label:
+        description: While the release PR has this label, it is not merged.
+        type: string
+        default: hold-release
 
 jobs:
   merge:
@@ -52,6 +61,7 @@ jobs:
       COMPONENT: ${{ inputs.component }}
       IMAGE_PATHS: ${{ inputs.paths }}
       REQUIRED_CHECKS: ${{ inputs.required-checks }}
+      HOLD_LABEL: ${{ inputs.hold-label }}
       GH_TOKEN: ${{ secrets.RELEASE_PLEASE_TOKEN }}
     steps:
       - name: Merge the release PR if it is safe
@@ -59,7 +69,7 @@ jobs:
         run: |
           release_pr=$(gh pr list --repo "$GITHUB_REPOSITORY" --state open \
             --head "release-please--branches--main--components--$COMPONENT" \
-            --json number,headRefOid --jq '.[0] // empty')
+            --json number,headRefOid,labels --jq '.[0] // empty')
           if [ -z "$release_pr" ]; then
             echo "No open $COMPONENT release PR."
             exit 0
@@ -67,6 +77,11 @@ jobs:
           number=$(jq -r .number <<< "$release_pr")
           head_sha=$(jq -r .headRefOid <<< "$release_pr")
           echo "Release PR #$number is at $head_sha."
+
+          if jq -e --arg label "$HOLD_LABEL" 'any(.labels[]; .name == $label)' <<< "$release_pr" > /dev/null; then
+            echo "Release PR #$number has the '$HOLD_LABEL' label, so it is held. Remove the label to release it."
+            exit 0
+          fi
 
           # 1. Has main changed the component since the PR was built? This lists the files
           # changed on main since the commit the PR is based on.
