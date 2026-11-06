@@ -3,7 +3,7 @@ name: Experiment - Release candidate
 # Part of the automated releases experiment (syntasso/enterprise-kratix#1640).
 #
 # Runs on a component's release-please PR. Builds the image once, pushes it as
-# candidate-<PR head commit>, and scans it with Snyk. If the scan fails, this check fails.
+# candidate-<PR head commit>, and scans it with Snyk and Trivy. If a scan fails, this check fails.
 # experiment-release-publish.yaml later gives this exact image its release tag.
 #
 # Call it with `secrets: inherit`. It uses GHCR_TOKEN, SNYK_TOKEN and
@@ -30,6 +30,10 @@ on:
         required: true
       build-contexts:
         description: Extra named build contexts, one name=path per line
+        type: string
+        default: ''
+      trivyignores:
+        description: Optional. The Trivy ignore file, relative to the repo root, e.g. .trivyignore.yaml
         type: string
         default: ''
 
@@ -123,6 +127,39 @@ jobs:
           image: ${{ inputs.image }}@${{ steps.candidate.outputs.digest }}
           args: --platform=linux/arm64 --severity-threshold=high --policy-path=.snyk --username=syntassodev --password=${{ secrets.GHCR_TOKEN }}
 
+      # always(): run Trivy even when Snyk fails, so both scanners report on every candidate.
+      - name: Trivy scan linux/amd64
+        id: trivy-amd64
+        if: always() && steps.candidate.outputs.digest != ''
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        env:
+          TRIVY_USERNAME: syntassodev
+          TRIVY_PASSWORD: ${{ secrets.GHCR_TOKEN }}
+          TRIVY_PLATFORM: linux/amd64
+        with:
+          image-ref: ${{ inputs.image }}@${{ steps.candidate.outputs.digest }}
+          version: v0.76.1
+          scanners: vuln
+          severity: HIGH,CRITICAL
+          exit-code: '1'
+          trivyignores: ${{ inputs.trivyignores }}
+
+      - name: Trivy scan linux/arm64
+        id: trivy-arm64
+        if: always() && steps.candidate.outputs.digest != ''
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        env:
+          TRIVY_USERNAME: syntassodev
+          TRIVY_PASSWORD: ${{ secrets.GHCR_TOKEN }}
+          TRIVY_PLATFORM: linux/arm64
+        with:
+          image-ref: ${{ inputs.image }}@${{ steps.candidate.outputs.digest }}
+          version: v0.76.1
+          scanners: vuln
+          severity: HIGH,CRITICAL
+          exit-code: '1'
+          trivyignores: ${{ inputs.trivyignores }}
+
       # Quiet when the candidate passes. Only tell people when the release is blocked.
       - name: Tell the experiment channel the release is blocked
         if: failure()
@@ -132,13 +169,13 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number }}
           PR_URL: ${{ github.event.pull_request.html_url }}
           PR_TITLE: ${{ github.event.pull_request.title }}
-          SCAN_FAILED: ${{ steps.scan-amd64.outcome == 'failure' || steps.scan-arm64.outcome == 'failure' }}
+          SCAN_FAILED: ${{ steps.scan-amd64.outcome == 'failure' || steps.scan-arm64.outcome == 'failure' || steps.trivy-amd64.outcome == 'failure' || steps.trivy-arm64.outcome == 'failure' }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           version="${PR_TITLE##* }"
           if [ "$SCAN_FAILED" = true ]; then
-            message=":octagonal_sign: *$COMPONENT v$version is blocked: Snyk found high severity vulnerabilities*
-          Release PR <$PR_URL|#$PR_NUMBER> can't merge. Fix it on \`main\`, or accept the CVEs in \`.snyk\` with a reason and an expiry date. <$RUN_URL|Scan results>"
+            message=":octagonal_sign: *$COMPONENT v$version is blocked: the image scan found high severity vulnerabilities*
+          Release PR <$PR_URL|#$PR_NUMBER> can't merge. Fix it on \`main\`, or accept the CVEs in \`.snyk\` or the Trivy ignore file with a reason and an expiry date. <$RUN_URL|Scan results>"
           else
             message=":octagonal_sign: *$COMPONENT v$version is blocked: the candidate build failed*
           Release PR <$PR_URL|#$PR_NUMBER> can't merge until it builds. <$RUN_URL|Build log>"
