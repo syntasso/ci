@@ -20,6 +20,10 @@ permissions:
   contents: write
   checks: read
   statuses: read
+  # gh pr checks reads each check's workflow run. In a private repo that
+  # needs actions: read, or the scheduled retry skips every aged PR.
+  # Callers must grant it too: this block can only narrow theirs.
+  actions: read
 
 jobs:
   # Scheduled run: find open Dependabot github-actions PRs that have aged
