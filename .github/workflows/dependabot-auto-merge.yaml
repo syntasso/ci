@@ -20,6 +20,10 @@ permissions:
   contents: write
   checks: read
   statuses: read
+  # gh pr checks reads each check's workflow run. In a private repo that
+  # needs actions: read, or the scheduled retry skips every aged PR.
+  # Callers must grant it too: this block can only narrow theirs.
+  actions: read
 
 jobs:
   # Scheduled run: find open Dependabot github-actions PRs that have aged
@@ -63,7 +67,12 @@ jobs:
             # Check CI status (exclude the auto-merge check itself)
             # Reusable-workflow jobs report a composite check name
             # ("<caller job> / auto-merge"), not bare "auto-merge" — match both.
-            CI_STATUS=$(gh pr checks "$NUMBER" --repo ${{ github.repository }} --json name,state --jq '[.[] | select(.name != "auto-merge" and (.name | endswith("/ auto-merge") | not)) | select(.state != "SUCCESS" and .state != "SKIPPED")] | length' 2>/dev/null || echo "1")
+            # Still skip if gh can't read the checks, but log why. Hiding this
+            # error made a permissions failure look like red CI.
+            if ! CI_STATUS=$(gh pr checks "$NUMBER" --repo ${{ github.repository }} --json name,state --jq '[.[] | select(.name != "auto-merge" and (.name | endswith("/ auto-merge") | not)) | select(.state != "SUCCESS" and .state != "SKIPPED")] | length' 2>"$RUNNER_TEMP/checks.err"); then
+              echo "  → Could not read CI checks, skipping: $(cat "$RUNNER_TEMP/checks.err")"
+              continue
+            fi
             if [[ "$CI_STATUS" != "0" ]]; then
               echo "  → CI not fully green, skipping"
               continue
