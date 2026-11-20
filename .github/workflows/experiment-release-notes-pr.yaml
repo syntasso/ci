@@ -13,7 +13,8 @@ name: Experiment - Release notes PR
 #      - A new minor gets a new entry at the top of the release notes page.
 #      - A patch updates the "Latest version" line of its minor's entry, and moves the old
 #        line into an "Earlier versions" list. experiment-release-pr.yaml makes sure a patch
-#        only ever has dependency and base image updates, so there is nothing else to add.
+#        has no feat or fix from a person. Its other PRs from people must have a NONE
+#        release note, so there is nothing else to add.
 #
 # It opens one PR at a time. The next release waits until the last notes PR is merged,
 # so the PRs never conflict with each other.
@@ -408,7 +409,7 @@ jobs:
           minor_heading="### v${VERSION%.*}"
           if grep -qxF "$minor_heading" "$DOCS_FILE"; then
             if [ "$HAS_NOTES" = true ]; then
-              echo "::error::v$VERSION is a patch of v${VERSION%.*}, but it has release notes of its own. A release with changes from a person should be a new minor (see experiment-release-pr.yaml)."
+              echo "::error::v$VERSION is a patch of v${VERSION%.*}, but it has release notes of its own. A feat or fix from a person makes a new minor (see experiment-release-pr.yaml). Any other PR from a person needs a NONE release note."
               exit 1
             fi
 

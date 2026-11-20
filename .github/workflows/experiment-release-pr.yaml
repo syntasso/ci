@@ -4,11 +4,13 @@ name: Experiment - Release PR
 #
 # Opens or updates a component's release-please PR, and picks its version:
 #
-#   - Any change from a person since the last release: the next minor, e.g. 0.10.0.
-#   - Only bot changes (Renovate PRs and base image bumps): a patch, e.g. 0.10.1.
+#   - A feat or fix PR from a person since the last release: the next minor, e.g. 0.10.0.
+#   - Anything else: a patch, e.g. 0.10.1. That is bot changes (Renovate PRs and base image
+#     bumps), and people's PRs of other types, such as chore, ci, docs or test.
 #
-# So a patch only ever has dependency and base image updates. That lets
+# So a patch never has a feature or fix from a person. That lets
 # experiment-release-notes-pr.yaml fold each patch into its minor's release notes entry.
+# A person's PR of another type must have a NONE release note, or the notes PR fails.
 #
 # Call it from the job that runs once the component's tests pass on main, with
 # `secrets: inherit`. It uses RELEASE_PLEASE_TOKEN, because a PR opened with GITHUB_TOKEN
@@ -67,7 +69,7 @@ jobs:
 
           # The same rules as the release notes: a commit with no PR is a base image bump, and
           # a PR from a bot author is a dependency update. Anything else is from a person.
-          from_a_person=false
+          has_feat_or_fix_from_a_person=false
           for sha in $(git log --format=%H "$last_tag..HEAD" -- "$PACKAGE_PATH"); do
             pr=$(gh api "repos/$GITHUB_REPOSITORY/commits/$sha/pulls" --jq '[.[] | select(.merged_at != null)][0] // empty')
             if [ -z "$pr" ]; then
@@ -88,18 +90,26 @@ jobs:
               continue
             fi
 
-            echo "#$number ($author): a change from a person"
-            from_a_person=true
+            # Check the title after the bot check: Renovate PRs are titled fix(renovate), and
+            # they must stay a patch.
+            title=$(jq -r .title <<< "$pr")
+            if [[ "$title" =~ ^(feat|fix)(\(.*\))?!?: ]]; then
+              echo "#$number ($author): a feat or fix from a person"
+              has_feat_or_fix_from_a_person=true
+              continue
+            fi
+
+            echo "#$number ($author): from a person, but not a feat or fix, so it does not need a minor"
           done
 
-          if [ "$from_a_person" = false ]; then
-            echo "Only bot changes since $last_tag, so release-please makes a patch."
+          if [ "$has_feat_or_fix_from_a_person" = false ]; then
+            echo "No feat or fix from a person since $last_tag, so release-please makes a patch."
             exit 0
           fi
 
           IFS=. read -r major minor _ <<< "$last_version"
           next_minor="$major.$((minor + 1)).0"
-          echo "Changes from a person since $last_tag, so the next release is $next_minor."
+          echo "A feat or fix from a person since $last_tag, so the next release is $next_minor."
           echo "release-as=$next_minor" >> "$GITHUB_OUTPUT"
 
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
