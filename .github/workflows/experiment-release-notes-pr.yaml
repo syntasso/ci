@@ -93,7 +93,9 @@ on:
         type: string
         default: ''
       max-wait-hours:
-        description: Fail when a release has waited longer than this for a chart release
+        description: >-
+          Fail when a release has waited longer than this for a chart release. Only the first
+          run past the limit fails and alerts. Later runs only warn.
         type: number
         default: 24
 
@@ -204,10 +206,24 @@ jobs:
             exit 0
           fi
 
-          waited_hours=$(( ($(date +%s) - $(git log -1 --format=%ct "$TAG")) / 3600 ))
+          tag_time=$(git log -1 --format=%ct "$TAG")
+          waited_seconds=$(( $(date +%s) - tag_time ))
+          waited_hours=$(( waited_seconds / 3600 ))
           summary="v$VERSION is waiting for a chart release (${waited_hours}h so far, limit ${MAX_WAIT_HOURS}h)"
           echo "summary=$summary" >> "$GITHUB_OUTPUT"
-          if [ "$waited_hours" -gt "$MAX_WAIT_HOURS" ]; then
+          if [ "$waited_seconds" -gt $(( MAX_WAIT_HOURS * 3600 )) ]; then
+            # This runs every few minutes, and a failed run posts to Slack. So only the first
+            # run past the limit fails. If a run of this workflow has failed since then, the
+            # alert has already gone out, and this run only warns.
+            limit_passed_at=$(date -u -d "@$(( tag_time + MAX_WAIT_HOURS * 3600 ))" +%Y-%m-%dT%H:%M:%SZ)
+            workflow_id=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" --jq .workflow_id)
+            failed_runs_since_limit=$(gh api -X GET "repos/$GITHUB_REPOSITORY/actions/workflows/$workflow_id/runs" \
+              -f status=failure -f created=">=$limit_passed_at" --jq .total_count)
+            if [ "$failed_runs_since_limit" -gt 0 ]; then
+              echo "::warning::$summary. An earlier run already failed and alerted, so this run does not."
+              exit 0
+            fi
+
             echo "::error::$summary. Check the chart release in $CHART_REPO."
             exit 1
           fi
